@@ -1,6 +1,6 @@
 ---
 title: "kawaz のリポ群で passkey がどう使われているかを洗う"
-status: open
+status: resolved
 category: task
 created: 2026-09-24T13:52:35+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-24T14:33:43+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["research/2026-09-24-passkey-usage-in-kawaz-repos","done:裁定が要る認証時の埋め込み拒否はQUESTIONS.mdのPK-Q1に起票、他の論点はclient-api-from-three-webuis/extract-server-from-ccmsgのDRで扱う"]
 blocked_by:
 origin: 自リポ TODO
 ---
@@ -45,7 +45,3 @@ ccmsg / ccmsg-webui / cache-warden / hyoui で passkey をどう使っている�
 - [ ] client API に要る物の列挙 (必須 / 一部の利用者だけ / 不要 の区分付き)
 - [ ] server API に要る物の列挙 (同上)
 - [ ] 記録先: `docs/research/YYYY-MM-DD-passkey-usage-in-kawaz-repos.md`
-
-## 解決時の記録先
-
-- 調査結果は `docs/research/`、そこから出る API の判断は `decisions/DR-NNNN-...md`
