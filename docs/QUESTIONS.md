@@ -18,20 +18,14 @@
 
 ## 裁定待ち
 
-### 👺XX-Q1: <質問要旨>
+### 👺PK-Q1: server は認証 (assertion) でも `crossOrigin` / `topOrigin` を拒否するか
 
-- [ ] a (推奨): …
-- [ ] b: …
+- [ ] a (推奨): 登録は拒否固定、認証は既定で拒否しつつ `allowEmbedded` 相当の option で通せるようにする
+- [ ] b: DESIGN のまま登録・認証とも拒否固定 (hyoui は `@kawaz/passkey-server` の対象外として扱う)
+- [ ] c: 認証は crossOrigin を見ない (hyoui の決定 6 に揃える)
 
-（推奨理由を簡潔に書く）
-
-#### 背景説明 (基本省略、詳細を求められたら補充)
+[DESIGN-ja.md](./DESIGN-ja.md) の server 節は「登録・認証とも埋め込みを拒否、緩める option を持たない」だが、hyoui の DR-0036 決定 6 は ccmsg-webui の Terminal タブ (cross-origin iframe) 内でのサインインを通すため認証で `crossOrigin` を見ない (`hyoui:crates/hyoui-web/src/auth/webauthn.rs:finish_authentication` のコメント。Chrome は cross-origin iframe の `get()` で `crossOrigin: true` を送る)。出典は [research](./research/2026-09-24-passkey-usage-in-kawaz-repos.md) 論点 3。a を推す理由: 登録の top-level 限定は「credential の作成元を保証する」責務で崩さず、認証は rpIdHash + origin 一致で「この RP のページで get が走った」を担保できるので、iframe 認証を要する利用者が明示 opt-in する形なら DESIGN の「厳しい既定」を保てる。b は hyoui が将来 TS 化しても乗れない、c は既定が緩む。
 
 ## 確認待ち
 
-### 👺XX-C1: <確認要旨>
-
-- [ ] a: <確認項目>
-- [ ] b: <確認項目>
-
-#### 確認手順 (基本省略、複雑な場合のみ)
+(なし)
