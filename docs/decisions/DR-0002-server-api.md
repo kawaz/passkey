@@ -19,7 +19,7 @@
 既に決まっていて覆さないこと:
 
 - 認証で `topOrigin` の無い `crossOrigin: true` をどう扱うかは `docs/QUESTIONS.md` PK-Q1 で裁定待ち。この DR は「既定は拒否、許可リストで通す」の形を決め、PK-Q1 の結論で option の既定を確定する
-- challenge の発行・保存・消費、credential の保存と引き当て、userHandle から利用者を引くこと、credential id が未登録であることの確認 (§7.1 step 25) は呼び出し側の責務。パッケージは状態を持たないので、保存を要する検査は「期待値を渡せる option」の形で持つ
+- challenge の発行・保存・消費、credential の保存と引き当て、userHandle から利用者を引くこと、credential id が未登録であることの確認 (§7.1 step 26) は呼び出し側の責務。パッケージは状態を持たないので、保存を要する検査は「期待値を渡せる option」の形で持つ
 
 ### 目的
 
@@ -110,7 +110,7 @@ interface RegisteredCredential {
 interface StoredCredential {
   publicKey: string;
   signCount: number;
-  /** 登録時の BE。渡すと今回の BE との一致を要求 (§7.2 step 20) */
+  /** 登録時の BE。渡すと今回の BE との一致を要求 (§7.2 step 19) */
   backupEligible?: boolean;
 }
 interface VerifiedAuthentication {
@@ -134,8 +134,8 @@ interface VerifiedAuthentication {
 - `residentKey` の既定は `"required"` (passkey = discoverable credential が DESIGN のドメイン。仕様 §5.4.4 の既定は `"discouraged"` で、それは passkey でない)。`"required"` の時は L1 互換の `requireResidentKey: true` も立てる。`"discouraged"` は受けない
 - `algorithms` の既定は `[-7, -8, -257]` (ES256 / EdDSA / RS256、server が検証できる 3 つ)。並び順が優先順なので、入力の順をそのまま `pubKeyCredParams` に写す
 - `challenge` は省略時 32 バイトの乱数 (仕様 §13.4.3 "Challenges SHOULD therefore be at least 16 bytes long." を満たし、参照実装も両方 32 バイト)。渡された値が 16 バイト未満なら `RangeError`
-- `user.id` は省略時 32 バイトの乱数、渡された値は 1〜64 バイト (仕様 §5.4.3) でなければ `RangeError`。`displayName` の既定は `""` (仕様が required なので省略できない。SimpleWebAuthn も同じ既定)
-- `timeout` の既定は 60000 ミリ秒 (参照実装の既定に揃える)
+- `user.id` は省略時 32 バイトの乱数、渡された値は 1〜64 バイト (仕様 §5.1.3 step 5 でブラウザが `TypeError` にする範囲) でなければ `RangeError`。`displayName` の既定は `""` (仕様が required なので省略できない。SimpleWebAuthn も同じ既定)
+- `timeout` の既定は 60000 ミリ秒 (参照実装の既定に揃える)。仕様 §5.4 では client が上書きしてよい hint で、§15.1 の推奨は 300000〜600000 ミリ秒 (既定 300000)。長い方が safe というものではなく、利用者が画面の都合で決める値なので短い方を既定にし、§15.1 に合わせたい利用者は入力で渡す
 - `hints` はそのまま写す (仕様 §5.8.8。SimpleWebAuthn は `preferredAuthenticatorType` から `hints` と `authenticatorAttachment` を導くが、対応表を持たず仕様の語彙で受ける)
 - `excludeCredentials` / `allowCredentials` は `type: "public-key"` を足して写す。認証で `allowCredentials` を省いた時は JSON にも載せない (空配列は「どれでも」でなく「無し」と読むブラウザがある。SimpleWebAuthn も `length !== 0` の時だけ載せる)
 
@@ -161,28 +161,28 @@ authenticator が符号化した COSE 鍵を 1 バイトも変えずに base64ur
 
 | 項目 (§) | 採否 | 根拠と挙動 |
 |---|---|---|
-| `type` が `webauthn.create` / `webauthn.get` (§7.1 step 7 / §7.2 step 11) | 採用 | 固定。SimpleWebAuthn の `expectedType` (別の type を通す option) は採らない: 仕様に他の値が無い |
-| challenge 一致 (§7.1 step 8 / §7.2 step 12) | 採用 | 定数時間比較。SimpleWebAuthn の「関数で判定する `expectedChallenge`」は採らない: `challengeOf` で値を取り出して発行元に照会できる (Decision 6) |
-| origin (§7.1 step 9 / §7.2 step 13、§13.4.9) | 採用、複数受け | 完全一致 (scheme / host / port)。`string \| string[]`。両参照実装が複数を受ける (SimpleWebAuthn `expectedOrigin: string \| string[]`、webauthn-rs `allowed_origins`)。§13.4.9 の「RP ID の任意サブドメインを通す」構造的一致 (webauthn-rs `allow_subdomains` / `allow_any_port`) は採らない: §13.4.8 が挙げる悪意あるサブドメインの危険があり、緩める option になる。一致した値を結果の `origin` で返す |
-| `crossOrigin` / `topOrigin` (§7.1 step 10-11 / §7.2 step 14-15、§13.4.9) | 採用、許可リスト | 仕様は "verify that the Relying Party expects that this credential would have been created within an iframe that is not same-origin with its ancestors" と "Verify that the value of C.topOrigin matches the origin of a page that the Relying Party expects to be sub-framed within" の 2 段で RP の方針に委ねる。既定 (option 無し) は `crossOrigin: true` と `topOrigin` の存在をどちらも拒否 (基準 4、`crossOrigin: false` は Chromium が毎回書くので存在で判定しない)。`topOrigins: string[]` を渡すと `topOrigin` がその 1 つに完全一致する応答を通す。`topOrigins` があるのに `topOrigin` を持たない `crossOrigin: true` (Safari は `topOrigin` を送らない。SimpleWebAuthn のコード注記 "Since Safari doesn't support `topOrigin` as of May 2026, only check this when `topOrigin` is available") は `embeddedWithoutTopOrigin` で決め、既定 `"reject"`。SimpleWebAuthn は認証で `expectedTopOrigin` (許可リスト) を持ち、`topOrigin` の無い `crossOrigin: true` は通す (`"allow"` 相当)。webauthn-rs は登録だけ `crossOrigin` を拒否し (`allow_cross_origin`、既定 false)、`topOrigin` を読まない。登録と認証で同じ形の option を持つ (基準 4): 登録を top-level に限りたい利用者は登録の `expected` に `topOrigins` を渡さなければよい |
-| rpIdHash (§7.1 step 13 / §7.2 step 16) | 採用、複数受け | `string \| string[]`。SimpleWebAuthn は `expectedRPID: string \| string[]`、webauthn-rs は 1 つ (`rp_id`) → 候補。採る理由は `origin` を配列で受けるなら、複数の registrable domain を持つ RP が rpId も複数持つ場面が同じ利用者に出ること。型の形は `origin` と揃う。一致した値を結果の `rpId` で返す |
-| UP (§7.1 step 14 / §7.2 step 17) | 採用、固定 | 緩める option 無し (基準 3)。SimpleWebAuthn の `requireUserPresence: false` (条件付き登録用) は採らない |
-| UV (§7.1 step 15 / §7.2 step 18-19) | 採用、固定 | 緩める option 無し (基準 3)。SimpleWebAuthn の `requireUserVerification` / `advancedFIDOConfig`、webauthn-rs の `UserVerificationPolicy::Preferred` は採らない |
-| BE が 0 なら BS も 0 (§7.1 step 16 / §7.2 step 20) | 採用 | 両 ceremony で検査し、矛盾は `backup-state` で拒否。両参照実装が拒否する (SimpleWebAuthn `InvalidBackupFlags`、webauthn-rs `CredentialMayNotBeHardwareBound`) |
-| BE / BS を返す (§7.1 step 17-18) | 採用 | 仕様の語 `backupEligible` / `backupState` で返す。SimpleWebAuthn の `credentialDeviceType: "singleDevice" \| "multiDevice"` / `credentialBackedUp` は同じ 2 bit の別名なので採らない (利用者に対応表を強いる) |
-| 認証で登録時の BE と比較 (§7.2 step 20) | 採用、option | 仕様は "If credentialRecord.backupEligible is set, verify that currentBe is set. If credentialRecord.backupEligible is not set, verify that currentBe is not set." を「RP が backup state を方針に使うなら」の条件付きで書く。`StoredCredential.backupEligible` を渡した時だけ比較し、不一致は `backup-eligibility` で拒否。webauthn-rs は既定で不一致を拒否し `allow_backup_eligible_upgrade` で false → true だけ通す。SimpleWebAuthn は比較しない。仕様どおり両方向を拒否し、昇格を通す option は未決 2 |
-| `alg` が `pubKeyCredParams` にある (§7.1 step 19) | 採用、option | `RegistrationExpectation.algorithms` に options で載せたものを渡す。省略時は server が検証できる 3 つ全部。外れは `algorithm` で拒否。両参照実装が持つ (SimpleWebAuthn `supportedAlgorithmIDs`、webauthn-rs `credential_algorithms`) |
-| attestation `fmt` / `attStmt` (§7.1 step 20-24) | 採用、固定 | `fmt` が `none` かつ `attStmt` が空でなければ `attestation-format` で拒否 (基準 3)。参照実装が持つ packed / tpm / apple / android-key 等の検証と MDS は採らない (DESIGN の扱わないもの) |
+| `type` が `webauthn.create` / `webauthn.get` (§7.1 step 7 / §7.2 step 10) | 採用 | 固定。SimpleWebAuthn の `expectedType` (別の type を通す option) は採らない: 仕様に他の値が無い |
+| challenge 一致 (§7.1 step 8 / §7.2 step 11) | 採用 | 定数時間比較。SimpleWebAuthn の「関数で判定する `expectedChallenge`」は採らない: `challengeOf` で値を取り出して発行元に照会できる (Decision 6) |
+| origin (§7.1 step 9 / §7.2 step 12、§13.4.9) | 採用、複数受け | 完全一致 (scheme / host / port)。`string \| string[]`。両参照実装が複数を受ける (SimpleWebAuthn `expectedOrigin: string \| string[]`、webauthn-rs `allowed_origins`)。§13.4.9 の「RP ID の任意サブドメインを通す」構造的一致 (webauthn-rs `allow_subdomains` / `allow_any_port`) は採らない: §13.4.8 が挙げる悪意あるサブドメインの危険があり、緩める option になる。一致した値を結果の `origin` で返す |
+| `crossOrigin` / `topOrigin` (§7.1 step 10-11 / §7.2 step 13-14、§13.4.9) | 採用、許可リスト | 仕様は "verify that the Relying Party expects that this credential would have been created within an iframe that is not same-origin with its ancestors" と "Verify that the value of C.topOrigin matches the origin of a page that the Relying Party expects to be sub-framed within" の 2 段で RP の方針に委ねる。既定 (option 無し) は `crossOrigin: true` と `topOrigin` の存在をどちらも拒否 (基準 4、`crossOrigin: false` は Chromium が毎回書くので存在で判定しない)。`topOrigins: string[]` を渡すと `topOrigin` がその 1 つに完全一致する応答を通す。`topOrigins` があるのに `topOrigin` を持たない `crossOrigin: true` (Safari は `topOrigin` を送らない。SimpleWebAuthn のコード注記 "Since Safari doesn't support `topOrigin` as of May 2026, only check this when `topOrigin` is available") は `embeddedWithoutTopOrigin` で決め、既定 `"reject"`。SimpleWebAuthn は認証で `expectedTopOrigin` (許可リスト) を持ち、`topOrigin` の無い `crossOrigin: true` は通す (`"allow"` 相当)。webauthn-rs は登録だけ `crossOrigin` を拒否し (`allow_cross_origin`、既定 false)、`topOrigin` を読まない。登録と認証で同じ形の option を持つ (基準 4): 登録を top-level に限りたい利用者は登録の `expected` に `topOrigins` を渡さなければよい |
+| rpIdHash (§7.1 step 14 / §7.2 step 15) | 採用、複数受け | `string \| string[]`。SimpleWebAuthn は `expectedRPID: string \| string[]`、webauthn-rs は 1 つ (`rp_id`) → 候補。採る理由は `origin` を配列で受けるなら、複数の registrable domain を持つ RP が rpId も複数持つ場面が同じ利用者に出ること。型の形は `origin` と揃う。一致した値を結果の `rpId` で返す |
+| UP (§7.1 step 15 / §7.2 step 16) | 採用、固定 | 緩める option 無し (基準 3)。SimpleWebAuthn の `requireUserPresence: false` (条件付き登録用) は採らない |
+| UV (§7.1 step 16 / §7.2 step 17) | 採用、固定 | 緩める option 無し (基準 3)。SimpleWebAuthn の `requireUserVerification` / `advancedFIDOConfig`、webauthn-rs の `UserVerificationPolicy::Preferred` は採らない |
+| BE が 0 なら BS も 0 (§7.1 step 17 / §7.2 step 18) | 採用 | 両 ceremony で検査し、矛盾は `backup-state` で拒否。両参照実装が拒否する (SimpleWebAuthn `InvalidBackupFlags`、webauthn-rs `CredentialMayNotBeHardwareBound`) |
+| BE / BS を返す (§7.1 step 18-19) | 採用 | 仕様の語 `backupEligible` / `backupState` で返す。SimpleWebAuthn の `credentialDeviceType: "singleDevice" \| "multiDevice"` / `credentialBackedUp` は同じ 2 bit の別名なので採らない (利用者に対応表を強いる) |
+| 認証で登録時の BE と比較 (§7.2 step 19) | 採用、option | 仕様は "If credentialRecord.backupEligible is set, verify that currentBe is set. If credentialRecord.backupEligible is not set, verify that currentBe is not set." を「RP が backup state を方針に使うなら」の条件付きで書く。`StoredCredential.backupEligible` を渡した時だけ比較し、不一致は `backup-eligibility` で拒否。webauthn-rs は既定で不一致を拒否し `allow_backup_eligible_upgrade` で false → true だけ通す。SimpleWebAuthn は比較しない。仕様どおり両方向を拒否し、昇格を通す option は未決 2 |
+| `alg` が `pubKeyCredParams` にある (§7.1 step 20) | 採用、option | `RegistrationExpectation.algorithms` に options で載せたものを渡す。省略時は server が検証できる 3 つ全部。外れは `algorithm` で拒否。両参照実装が持つ (SimpleWebAuthn `supportedAlgorithmIDs`、webauthn-rs `credential_algorithms`) |
+| attestation `fmt` / `attStmt` (§7.1 step 21-24) | 採用、固定 | `fmt` が `none` かつ `attStmt` が空でなければ `attestation-format` で拒否 (基準 3)。参照実装が持つ packed / tpm / apple / android-key 等の検証と MDS は採らない (DESIGN の扱わないもの) |
 | credential id ≤ 1023 バイト (§7.1 step 25) | 採用 | 超えたら `credential` で拒否。空も `credential` |
 | credential id が未登録 (§7.1 step 26) | 呼び出し側 | 保存を要する。webauthn-rs の「`excludeCredentials` に載せた id と一致したら拒否」(OUT OF SPEC と注記) も採らない: 呼び出し側が保存を引くときに同じことが分かる |
 | `rawId` と attested credential id の一致 | 採用 | 仕様の手順には無いが、`rawId` で引く記録と署名された id が同じ credential を指すことの確認。webauthn-rs も両者を比較する |
 | `transports` を返す (§7.1 step 27 の credential record) | 採用 | `response.transports` の写しを `RegisteredCredential.transports` で返す (無ければ `[]`)。検証には使わず、`allowCredentials` に載せるため。両参照実装が返す。文字列の配列であることだけ確かめる |
 | `allowCredentials` との照合 (§7.2 step 5) | 呼び出し側 | `rawId` で保存済み credential を引いて `StoredCredential` を渡す時点で成立する。SimpleWebAuthn も検証関数では見ない。webauthn-rs は state に持つ credential 一覧から引く (状態を持つ形) |
 | userHandle (§7.2 step 6) | 採用、option | 仕様: "If the user was identified before the authentication ceremony was initiated, e.g., via a username or cookie, verify that the identified user account contains a credential record whose id equals credential.rawId. Let credentialRecord be that credential record. If response.userHandle is present, verify that it equals the user handle of the user account." `AuthenticationExpectation.userHandle` を渡すと、応答に `userHandle` がある時に一致を要求し、不一致は `user-handle` で拒否。利用者を特定していない経路 (discoverable) では、応答の `userHandle` を結果で返し、それで利用者を引くのは呼び出し側。両参照実装とも照合は呼び出し側に置く (候補) が、期待値を渡す option 1 つで仕様の手順を閉じられるので採る |
-| 署名 (§7.2 step 21-22) | 採用 | ES256 / EdDSA / RS256。外れは `signature` |
-| sign count (§7.2 step 23) | 採用、固定 | 仕様の形 "If authData.signCount is nonzero or credentialRecord.signCount is nonzero" で `signCount !== 0 \|\| stored !== 0` の時に `signCount <= stored` を `sign-count` で拒否。両参照実装が同じ規則 (`counter > 0 \|\| stored > 0`)。「保存値 > 0 の時だけ」の規則と結果は同じ (保存値が 0 で今回が非 0 なら必ず今回 > 保存値) だが、仕様と参照実装の書き方に揃える。仕様は巻き戻り時の扱いを RP-specific とするので既定は拒否で、通す option は持たない (基準 4) |
-| 拡張出力の処理 (§7.1 step 28 / §7.2 step 24) | 呼び出し側 | `clientExtensionResults` は読まない。authenticator data の extensions (ED flag) は CBOR として読み飛ばし、返さない: Level 3 §10.2 (Authenticator Extensions) は "This section is currently empty." で RP の処理手順を持つ拡張が無く、両参照実装も `unknown` で返すだけ |
-| 記録の更新 (§7.2 step 25) | 呼び出し側 | 返した `signCount` / `backupState` を保存するのは呼び出し側 |
+| 署名 (§7.2 step 20-21) | 採用 | ES256 / EdDSA / RS256。外れは `signature` |
+| sign count (§7.2 step 22) | 採用、固定 | 仕様の形 "If authData.signCount is nonzero or credentialRecord.signCount is nonzero" で `signCount !== 0 \|\| stored !== 0` の時に `signCount <= stored` を `sign-count` で拒否。両参照実装が同じ規則 (`counter > 0 \|\| stored > 0`)。「保存値 > 0 の時だけ」の規則と結果は同じ (保存値が 0 で今回が非 0 なら必ず今回 > 保存値) だが、仕様と参照実装の書き方に揃える。仕様は巻き戻り時の扱いを RP-specific とするので既定は拒否で、通す option は持たない (基準 4) |
+| 拡張出力の処理 (§7.1 step 28 / §7.2 step 23) | 呼び出し側 | `clientExtensionResults` は読まない。authenticator data の extensions (ED flag) は CBOR として読み飛ばし、返さない: Level 3 §10.2 (Authenticator Extensions) は "This section is currently empty." で RP の処理手順を持つ拡張が無く、両参照実装も `unknown` で返すだけ |
+| 記録の更新 (§7.2 step 24) | 呼び出し側 | 返した `signCount` / `backupState` を保存するのは呼び出し側 |
 
 ### 6. `challengeOf` を公開する
 
@@ -264,7 +264,7 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 ### 未決 (kawaz 裁定)
 
 1. 入力型を読むメンバーだけの構造的部分型にする (PK-Q3、推奨 a のまま)
-2. 認証で BE の false → true (single-device から synced への昇格) を通す option を持つか。仕様 §7.2 step 20 は両方向とも不一致を「verify」の対象にするが、webauthn-rs は `allow_backup_eligible_upgrade` を持ち "This is common on passkeys during some upgrades" と注記する。持つなら `StoredCredential.backupEligible` と対にする option になる。この DR では持たない (仕様どおり両方向拒否、`backupEligible` を渡さなければ比較しない) で書いた
+2. 認証で BE の false → true (single-device から synced への昇格) を通す option を持つか。仕様 §7.2 step 19 は両方向とも不一致を「verify」の対象にするが、webauthn-rs は `allow_backup_eligible_upgrade` を持ち "This is common on passkeys during some upgrades" と注記する。持つなら `StoredCredential.backupEligible` と対にする option になる。この DR では持たない (仕様どおり両方向拒否、`backupEligible` を渡さなければ比較しない) で書いた
 3. 認証で `topOrigin` の無い `crossOrigin: true` の既定 (`embeddedWithoutTopOrigin`) — PK-Q1
 
 ### DR 改訂に伴う実装 TODO (`packages/server`、この DR では実装しない)
@@ -289,6 +289,6 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - [research/2026-09-24-passkey-usage-in-kawaz-repos.md](../research/2026-09-24-passkey-usage-in-kawaz-repos.md) 表 3
 - [DR-0001](DR-0001-client-api.md) (client が出す `json` の形と、client に渡す options JSON)
 - `docs/QUESTIONS.md` PK-Q1 / PK-Q3
-- WebAuthn Level 3 (W3C Recommendation, 2026-08-25): §5.4.3 user id の長さ、§5.4.4 `residentKey` の既定、§5.8.8 hints、§7.1 / §7.2 RP の手順、§10.2 authenticator extensions、§13.4.3 challenge の長さ、§13.4.8 / §13.4.9 origin と topOrigin の検証
+- WebAuthn Level 3 (W3C Recommendation, 2026-08-25): §5.1.3 step 5 user id の長さ、§5.4.4 `residentKey` の既定、§15.1 timeout の推奨、§5.8.8 hints、§7.1 / §7.2 RP の手順、§10.2 authenticator extensions、§13.4.3 challenge の長さ、§13.4.8 / §13.4.9 origin と topOrigin の検証
 - SimpleWebAuthn `@simplewebauthn/server` 14.0.2: `generateRegistrationOptions` / `generateAuthenticationOptions` / `verifyRegistrationResponse` / `verifyAuthenticationResponse`
 - webauthn-rs 0.6.1-dev: `webauthn-rs-core` の `generate_challenge_register` / `register_credential` / `generate_challenge_authenticate` / `authenticate_credential` / `origins_match`、`webauthn-rs` の `start_passkey_registration` / `finish_passkey_authentication`
