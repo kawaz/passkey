@@ -1,11 +1,11 @@
 ---
 title: "ccmsg の WebAuthn 検証を @kawaz/passkey-server に移す"
-status: open
+status: wip
 category: task
 created: 2026-09-24T13:52:35+09:00
 last_read:
 open_entered: 2026-09-24T13:52:35+09:00
-wip_entered:
+wip_entered: 2026-09-24T14:46:57+09:00
 blocked_entered:
 pending_entered:
 discarded_entered:

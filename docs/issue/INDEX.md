@@ -4,7 +4,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
-| 2026-09-24 | task | open | [extract-server-from-ccmsg](./2026-09-24-extract-server-from-ccmsg.md) | kawaz/ccmsg の検証実装を `@kawaz/passkey-server` に移す。入力の形を Level 3 の `toJSON()` (camelCa… |
+| 2026-09-24 | task | wip | [extract-server-from-ccmsg](./2026-09-24-extract-server-from-ccmsg.md) | kawaz/ccmsg の検証実装を `@kawaz/passkey-server` に移す。入力の形を Level 3 の `toJSON()` (camelCa… |
 | 2026-09-24 | task | wip | [client-api-from-three-webuis](./2026-09-24-client-api-from-three-webuis.md) | ccmsg-webui / cache-warden / hyoui の 3 つの webui の使い方から `@kawaz/passkey-client` の API … |
 
 <!--
