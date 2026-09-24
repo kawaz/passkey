@@ -14,3 +14,4 @@ Status は各 DR ファイルの `Status:` 行が正本。ここに載るのは�
 
 | DR | 状態 | 説明 |
 |---|---|---|
+| [DR-0001](DR-0001-client-api.md) | 💭 提案 | `@kawaz/passkey-client` の公開 API: Level 3 JSON の入出力、失敗の 3 区分 (`declined` / `aborted` / `failed`)、条件付き UI は `mediation` + 必須 `signal`、可否は `getClientCapabilities()` の語彙、iframe は `context().embedded`、整形は常に自前で `prf.results` を wire に載せない |
