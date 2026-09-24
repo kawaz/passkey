@@ -15,3 +15,4 @@ Status は各 DR ファイルの `Status:` 行が正本。ここに載るのは�
 | DR | 状態 | 説明 |
 |---|---|---|
 | [DR-0001](DR-0001-client-api.md) | 💭 提案 | `@kawaz/passkey-client` の公開 API: Level 3 JSON の入出力、失敗の 3 区分 (`declined` / `aborted` / `failed`)、条件付き UI は `mediation` + 必須 `signal`、可否は `getClientCapabilities()` の語彙、iframe は `context().embedded`、整形は常に自前で `prf.results` を wire に載せない |
+| [DR-0002](DR-0002-server-api.md) | 💭 提案 | `@kawaz/passkey-server` の公開 API: Level 3 JSON を入力に `verifyRegistration` / `verifyAuthentication` / `challengeOf`、`publicKey` は COSE 鍵そのままの base64url、登録で鍵の import まで保証、失敗は `PasskeyVerificationError` の `reason`、依存は WebCrypto だけ (Node / Bun / Deno 実測済) |

@@ -1,0 +1,304 @@
+/** The three a page asks for, as the one under test names them. An
+ * authenticator picks one and every message it sends is of that one. */
+export type SoftAlgorithm = "ES256" | "EdDSA" | "RS256";
+
+/** A WebAuthn authenticator in software, for the tests.
+ *
+ * There is no browser and no Touch ID in a test run, so the two messages an
+ * authenticator produces are built here from the same parts a real one uses: a
+ * key pair of one of the three algorithms a credential may be made with, the
+ * authenticator data the relying party is hashed into, and a signature over it.
+ * What it exercises is this instance's verification — every byte it produces
+ * goes through the same path a real credential's would. */
+export class SoftAuthenticator {
+  #keys: CryptoKeyPair | undefined;
+  readonly algorithm: SoftAlgorithm;
+  readonly credentialId = crypto.getRandomValues(new Uint8Array(16));
+  signCount = 0;
+  /** What the browser writes beside the origin.
+   *
+   * `undefined` leaves the field out, as Safari does; `false` writes it, as
+   * Chromium does on every message. Both are a same-origin exchange and both
+   * have to be admitted, which is what having the choice here is for. */
+  crossOrigin: boolean | undefined;
+  /** Whether the person was verified. An authenticator asked for
+   * `userVerification: "required"` always says yes; one that says no is what a
+   * relying party has to turn away. */
+  userVerified = true;
+  /** The BE and BS flags. A key that lives on the single device that made it
+   * says no to both, which is what these default to; a synced passkey says yes
+   * to BE and, once it has been copied out, to BS as well. */
+  backupEligible = false;
+  backupState = false;
+  /** The `user.id` the credential was created against, which a resident
+   * credential answers with. */
+  userHandle: string | undefined;
+
+  /** The credential id as it is spelled on the wire. */
+  get credentialIdUrl(): string {
+    return url(this.credentialId);
+  }
+
+  readonly rpId: string;
+
+  constructor(rpId: string, options: { crossOrigin?: boolean; algorithm?: SoftAlgorithm } = {}) {
+    this.rpId = rpId;
+    this.crossOrigin = options.crossOrigin;
+    this.algorithm = options.algorithm ?? "ES256";
+  }
+
+  async #pair(): Promise<CryptoKeyPair> {
+    this.#keys ??= (await crypto.subtle.generateKey(GENERATE[this.algorithm], true, [
+      "sign",
+      "verify",
+    ])) as CryptoKeyPair;
+    return this.#keys;
+  }
+
+  /** The public key as COSE writes it, which is what the registration carries
+   * and every later assertion is verified with. */
+  async #cose(): Promise<Uint8Array> {
+    const jwk = await crypto.subtle.exportKey("jwk", (await this.#pair()).publicKey);
+    if (this.algorithm === "ES256") {
+      return encodeCbor(
+        new Map<number, unknown>([
+          [1, 2],
+          [3, -7],
+          [-1, 1],
+          [-2, b64(jwk.x as string)],
+          [-3, b64(jwk.y as string)],
+        ]),
+      );
+    }
+    if (this.algorithm === "EdDSA") {
+      return encodeCbor(
+        new Map<number, unknown>([
+          [1, 1],
+          [3, -8],
+          [-1, 6],
+          [-2, b64(jwk.x as string)],
+        ]),
+      );
+    }
+    return encodeCbor(
+      new Map<number, unknown>([
+        [1, 3],
+        [3, -257],
+        [-1, b64(jwk.n as string)],
+        [-2, b64(jwk.e as string)],
+      ]),
+    );
+  }
+
+  /** What `navigator.credentials.create()` would have produced. */
+  async create(options: {
+    challenge: string;
+    origin: string;
+    userId?: string;
+  }): Promise<RegistrationResponseJSON> {
+    this.userHandle = options.userId;
+    const cose = await this.#cose();
+    const authData = await this.#authData(true, cose);
+    const attestation = encodeCbor(
+      new Map<string, unknown>([
+        ["fmt", "none"],
+        ["attStmt", new Map()],
+        ["authData", authData],
+      ]),
+    );
+    const id = url(this.credentialId);
+    return {
+      id,
+      rawId: id,
+      type: "public-key",
+      clientExtensionResults: {},
+      response: {
+        clientDataJSON: url(this.#clientData("webauthn.create", options.challenge, options.origin)),
+        attestationObject: url(attestation),
+        authenticatorData: url(authData),
+        publicKeyAlgorithm: ALGORITHM[this.algorithm],
+        transports: ["internal"],
+      },
+    };
+  }
+
+  /** What `navigator.credentials.get()` would have produced. */
+  async get(options: {
+    challenge: string;
+    origin: string;
+    reversedSignedBytes?: boolean;
+  }): Promise<AuthenticationResponseJSON> {
+    const authData = await this.#authData(false);
+    const client = this.#clientData("webauthn.get", options.challenge, options.origin);
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", client));
+    const signed = new Uint8Array(authData.length + 32);
+    if (options.reversedSignedBytes) {
+      signed.set(hash, 0);
+      signed.set(authData, 32);
+    } else {
+      signed.set(authData, 0);
+      signed.set(hash, authData.length);
+    }
+    const raw = new Uint8Array(
+      await crypto.subtle.sign(SIGN[this.algorithm], (await this.#pair()).privateKey, signed),
+    );
+    // Only ECDSA is carried in a spelling other than the one WebCrypto
+    // produces, so only it is put back the way an authenticator would.
+    const id = url(this.credentialId);
+    return {
+      id,
+      rawId: id,
+      type: "public-key",
+      clientExtensionResults: {},
+      response: {
+        clientDataJSON: url(client),
+        authenticatorData: url(authData),
+        signature: url(this.algorithm === "ES256" ? der(raw) : raw),
+        ...(this.userHandle === undefined ? {} : { userHandle: this.userHandle }),
+      },
+    };
+  }
+
+  #clientData(type: string, challenge: string, origin: string): Uint8Array<ArrayBuffer> {
+    return new TextEncoder().encode(
+      JSON.stringify({
+        type,
+        challenge,
+        origin,
+        ...(this.crossOrigin === undefined ? {} : { crossOrigin: this.crossOrigin }),
+      }),
+    );
+  }
+
+  /** The authenticator data both messages carry: the relying party, the flags
+   * that say a person was present and verified, the counter, and — on a
+   * registration — the credential this authenticator just made. */
+  async #authData(attested: boolean, cose?: Uint8Array): Promise<Uint8Array> {
+    const rpIdHash = new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(this.rpId)),
+    );
+    const head = new Uint8Array(37);
+    head.set(rpIdHash, 0);
+    head[32] =
+      (attested ? 0x41 : 0x01) |
+      (this.userVerified ? 0x04 : 0x00) |
+      (this.backupEligible ? 0x08 : 0x00) |
+      (this.backupState ? 0x10 : 0x00);
+    new DataView(head.buffer).setUint32(33, this.signCount);
+    if (!attested || cose === undefined) return head;
+    const tail = new Uint8Array(18 + this.credentialId.length + cose.length);
+    // The AAGUID is all zeroes: this authenticator makes no statement about
+    // what it is, which is exactly what `fmt: "none"` means.
+    new DataView(tail.buffer).setUint16(16, this.credentialId.length);
+    tail.set(this.credentialId, 18);
+    tail.set(cose, 18 + this.credentialId.length);
+    const whole = new Uint8Array(head.length + tail.length);
+    whole.set(head, 0);
+    whole.set(tail, head.length);
+    return whole;
+  }
+}
+
+const GENERATE: Record<SoftAlgorithm, Record<string, unknown> & { name: string }> = {
+  ES256: { name: "ECDSA", namedCurve: "P-256" },
+  EdDSA: { name: "Ed25519" },
+  RS256: {
+    name: "RSASSA-PKCS1-v1_5",
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]),
+    hash: "SHA-256",
+  },
+};
+
+const ALGORITHM: Record<SoftAlgorithm, number> = { ES256: -7, EdDSA: -8, RS256: -257 };
+
+const SIGN: Record<SoftAlgorithm, Record<string, unknown> & { name: string }> = {
+  ES256: { name: "ECDSA", hash: "SHA-256" },
+  EdDSA: { name: "Ed25519" },
+  RS256: { name: "RSASSA-PKCS1-v1_5" },
+};
+
+/** base64url, written apart from the package's own so the two cannot agree on a mistake by sharing code. */
+export function url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+export function b64(value: string): Uint8Array {
+  const binary = atob(value.replaceAll("-", "+").replaceAll("_", "/"));
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+/** WebCrypto signs ECDSA as the raw pair; WebAuthn carries the ASN.1 sequence,
+ * so the test puts it back the way an authenticator would. */
+function der(raw: Uint8Array): Uint8Array {
+  const part = (bytes: Uint8Array): number[] => {
+    let at = 0;
+    while (at < bytes.length - 1 && bytes[at] === 0) at += 1;
+    const value = [...bytes.subarray(at)];
+    if ((value[0] as number) >= 0x80) value.unshift(0);
+    return [0x02, value.length, ...value];
+  };
+  const body = [...part(raw.subarray(0, 32)), ...part(raw.subarray(32))];
+  return new Uint8Array([0x30, body.length, ...body]);
+}
+
+/** Just enough CBOR to write what an authenticator sends. The mirror of the
+ * decoder under test, written apart from it so the two cannot agree on a
+ * mistake by sharing code. */
+function encodeCbor(value: unknown): Uint8Array {
+  const out: number[] = [];
+  write(value, out);
+  return new Uint8Array(out);
+}
+
+function write(value: unknown, out: number[]): void {
+  if (typeof value === "number") {
+    if (value < 0) head(1, -1 - value, out);
+    else head(0, value, out);
+    return;
+  }
+  if (typeof value === "string") {
+    const bytes = new TextEncoder().encode(value);
+    head(3, bytes.length, out);
+    out.push(...bytes);
+    return;
+  }
+  if (value instanceof Uint8Array) {
+    head(2, value.length, out);
+    out.push(...value);
+    return;
+  }
+  if (value instanceof Map) {
+    head(5, value.size, out);
+    for (const [key, held] of value) {
+      write(key, out);
+      write(held, out);
+    }
+    return;
+  }
+  throw new Error(`this encoder does not write ${typeof value}`);
+}
+
+function head(major: number, argument: number, out: number[]): void {
+  if (argument < 24) {
+    out.push((major << 5) | argument);
+    return;
+  }
+  if (argument < 0x100) {
+    out.push((major << 5) | 24, argument);
+    return;
+  }
+  if (argument < 0x10000) {
+    out.push((major << 5) | 25, argument >> 8, argument & 0xff);
+    return;
+  }
+  out.push(
+    (major << 5) | 26,
+    (argument >>> 24) & 0xff,
+    (argument >>> 16) & 0xff,
+    (argument >>> 8) & 0xff,
+    argument & 0xff,
+  );
+}

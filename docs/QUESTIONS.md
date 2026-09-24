@@ -37,6 +37,14 @@
 
 統括の評価: 5 項目とも 3 client の実コードから導かれ、発明は無い。`prf.results` を落とすのは仕様 §10.1.4 が省略を求める場面そのもので、DESIGN の「wire は toJSON の形」の例外として妥当。整形の自前一本化はテスト経路が 1 つになる利点が大きい。
 
+### 👺PK-Q3: DR-0002 (`@kawaz/passkey-server` の公開 API) を accept するか
+
+[DR-0002](./decisions/DR-0002-server-api.md)。実装は `packages/server` に入っており `just ci` 緑、Node 26 / Bun 1.3 / Deno 2.9 で登録+認証を実機確認済み。未決は入力型 1 点。
+
+- [ ] a (推奨): 入力型を「読むメンバーだけの構造的部分型」にして accept (Level 3 の `json` はそのまま渡せる。ccmsg の境界でダミー値が要らない)
+- [ ] b: 入力型を lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` そのままにして accept
+- [ ] c: その他 (チャットで)
+
 ## 確認待ち
 
 (なし)
