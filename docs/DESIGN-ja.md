@@ -48,10 +48,12 @@ API の具体形は 3 つの webui の使い方から決める (issue `client-ap
 - origin は完全一致 (scheme / host / port)、rpId は SHA-256 を authenticator data の rpIdHash と照合する
 - sign count の巻き戻りを拒否する: 保存済みの値が 0 より大きく、今回の値がそれ以下なら通さない (0 のままの authenticator は数えないものとして扱う)
 - 登録時に BE / BS (backup) flag を読んで返す。判断には使わない
+- Node 26 / Bun 1.3 / Deno 2.9 で登録・認証を確認済み (`packages/server/test/runtime/smoke.mjs`)。edge runtime は未確認
 
 ## 主要な設計判断
 
-DR はまだない ([decisions/INDEX.md](./decisions/INDEX.md))。
+- [DR-0001](decisions/DR-0001-client-api.md) — `@kawaz/passkey-client` の公開 API (Proposed)
+- [DR-0002](decisions/DR-0002-server-api.md) — `@kawaz/passkey-server` の公開 API (Proposed)
 
 ## 関連ドキュメント
 

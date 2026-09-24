@@ -48,10 +48,12 @@ The concrete API is decided from how three web UIs use it (issue `client-api-fro
 - Origin is an exact match (scheme / host / port); the rpId's SHA-256 is matched against the rpIdHash in the authenticator data
 - Rejects a sign count that goes backwards: when the stored value is above 0 and the new one is not greater, it does not pass (an authenticator that stays at 0 is treated as not counting)
 - Reads and returns the BE / BS (backup) flags at registration. They do not decide anything
+- Confirmed working on Node 26 / Bun 1.3 / Deno 2.9 for registration and authentication (`packages/server/test/runtime/smoke.mjs`). Edge runtimes are unconfirmed
 
 ## Key Design Decisions
 
-No DRs yet ([decisions/INDEX.md](./decisions/INDEX.md)).
+- [DR-0001](decisions/DR-0001-client-api.md) — Public API of `@kawaz/passkey-client` (Proposed)
+- [DR-0002](decisions/DR-0002-server-api.md) — Public API of `@kawaz/passkey-server` (Proposed)
 
 ## Related Documents
 
