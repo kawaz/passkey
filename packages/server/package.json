@@ -1,0 +1,28 @@
+{
+  "name": "@kawaz/passkey-server",
+  "version": "0.1.0",
+  "description": "Server side of passkeys: verifies registrations and assertions with WebCrypto alone",
+  "keywords": [
+    "passkey",
+    "server",
+    "webauthn"
+  ],
+  "license": "MIT",
+  "author": "Yoshiaki Kawazu (@kawaz)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kawaz/passkey.git",
+    "directory": "packages/server"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  }
+}

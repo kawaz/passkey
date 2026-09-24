@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# lock は bun.lock。npm publish 系コマンドが副産物として作るものは捨てる
+package-lock.json
+# 各自の VS Code workspace ファイル。oxfmt はユーザ global の ignore を読まないので、ここに書かないと lint が拾う
+*.local.*
