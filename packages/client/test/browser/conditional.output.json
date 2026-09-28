@@ -1,0 +1,36 @@
+{
+  "register": true,
+  "start": "started",
+  "conditional": {
+    "json": {
+      "id": "vtAIklg8aEM-sL3yA7ofEHSvgFrnJAklQoAJdpbFm-0",
+      "rawId": "vtAIklg8aEM-sL3yA7ofEHSvgFrnJAklQoAJdpbFm-0",
+      "type": "public-key",
+      "response": {
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiNFRBcFJHUENhbnJOTDVRM2UwYW5RMFN4N3RFSm9CZmlVU2VJVmZpUERmdyIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODc4NyIsImNyb3NzT3JpZ2luIjpmYWxzZSwib3RoZXJfa2V5c19jYW5fYmVfYWRkZWRfaGVyZSI6ImRvIG5vdCBjb21wYXJlIGNsaWVudERhdGFKU09OIGFnYWluc3QgYSB0ZW1wbGF0ZS4gU2VlIGh0dHBzOi8vZ29vLmdsL3lhYlBleCJ9",
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAg",
+        "signature": "MEUCIQDUsvCUQf8MhfDn-VdutE7pxV9qaCAS659fSbq2Fh0pgQIgHybk1JDUnjUqzBGV4D8yTERmaRg2P9eX6R5EE4U-KgE",
+        "userHandle": "dXNlci0x"
+      },
+      "clientExtensionResults": {},
+      "authenticatorAttachment": "platform"
+    },
+    "server": {
+      "ok": true,
+      "verified": {
+        "signCount": 2,
+        "backupEligible": false,
+        "backupState": false,
+        "userHandle": "dXNlci0x",
+        "origin": "http://localhost:8787",
+        "rpId": "localhost"
+      }
+    }
+  },
+  "abortStart": "started",
+  "aborted": {
+    "kind": "aborted",
+    "name": "AbortError",
+    "message": "signal is aborted without reason"
+  }
+}

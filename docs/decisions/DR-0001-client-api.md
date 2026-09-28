@@ -1,6 +1,6 @@
 # DR-0001: `@kawaz/passkey-client` の公開 API
 
-- Status: Accepted (2026-09-28、未実装)
+- Status: Accepted (2026-09-28)、実装済 (`packages/client`)
 - Date: 2026-09-24
 
 ## Context
@@ -102,7 +102,7 @@ export function context(): PasskeyContext;
 |---|---|---|
 | `declined` | `NotAllowedError`、`create()` / `get()` の `null` 応答 | passkey が提示されなかった。利用者の取り消しと、この origin の passkey が無いことと、埋め込みで permissions policy に拒まれたことを、ブラウザは同じ名前で返す (仕様 §5.1.3 / §5.1.4 の catch-all)。区別は利用者側が `context()` と組み合わせて行う |
 | `excluded` | 登録の `InvalidStateError` | `excludeCredentials` に載せた credential を持つ authenticator が選ばれた (仕様 §5.1.3 の excludeCredentials 一致)。仕様 §7.1 step 2 が「別の authenticator を使うよう案内する」例として挙げる唯一の失敗で、利用者が文言を分けるべき失敗 |
-| `aborted` | `AbortError` | 利用者側が渡した `signal` で止めた。条件付き UI を画面の unmount で畳む時に出る |
+| `aborted` | `AbortError`、または渡した `signal` が abort 済みで投げられた値が `signal.reason` と同一 (`abort(reason)` に独自の値を渡すとブラウザはその値で reject する) | 利用者側が渡した `signal` で止めた。条件付き UI を画面の unmount で畳む時に出る |
 | `failed` | それ以外 (`SecurityError` / `NotSupportedError` / `ConstraintError` / `TypeError` / `EncodingError` / client 自身の展開失敗 / `PublicKeyCredential` 不在) | options か環境の問題。利用者には `message` を見せる |
 
 `message` は元の例外の `message` をそのまま持ち、`cause` に元の例外を持たせる。`kind` より細かい判断は `cause.name` から行う。

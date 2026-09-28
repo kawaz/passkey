@@ -1,0 +1,115 @@
+{
+  "environment": {
+    "capabilities": {
+      "conditionalCreate": true,
+      "conditionalGet": true,
+      "extension:appid": true,
+      "extension:appidExclude": true,
+      "extension:cmtgKey": false,
+      "extension:credBlob": true,
+      "extension:credProps": true,
+      "extension:credentialProtectionPolicy": true,
+      "extension:crossDeviceFallbackUrl": false,
+      "extension:enforceCredentialProtectionPolicy": true,
+      "extension:getCredBlob": true,
+      "extension:hmacCreateSecret": true,
+      "extension:largeBlob": true,
+      "extension:minPinLength": true,
+      "extension:payment": true,
+      "extension:prf": true,
+      "hybridTransport": true,
+      "immediateGet": true,
+      "passkeyPlatformAuthenticator": true,
+      "relatedOrigins": true,
+      "signalAllAcceptedCredentials": true,
+      "signalCurrentUserDetails": true,
+      "signalUnknownCredential": true,
+      "userVerifyingPlatformAuthenticator": true
+    },
+    "context": {
+      "embedded": false,
+      "standalone": false,
+      "allowed": {}
+    }
+  },
+  "register": {
+    "json": {
+      "id": "wm6tqj9k2OqgJYY3tpOJKVGEF00XnkT5_hw-9aDOmE8",
+      "rawId": "wm6tqj9k2OqgJYY3tpOJKVGEF00XnkT5_hw-9aDOmE8",
+      "type": "public-key",
+      "response": {
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiY0I2S1ZheVNpVDFMOTRqV0QzOFVhSVQtS1U3ajdiT1lWQ3gxRmNhaUNXOCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODc4NyIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NFAAAAAQECAwQFBgcIAQIDBAUGBwgAIMJurao_ZNjqoCWGN7aTiSlRhBdNF55E-f4cPvWgzphPpQECAyYgASFYIHZqr08vpNVQZglcAx5rDNZak8aNhwnvYNXPLmfenQwrIlggqQs8QUvwnlAeiaSb8vosAT3x1_xuF6epQynXSqBFWj4",
+        "transports": ["internal"],
+        "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdmqvTy-k1VBmCVwDHmsM1lqTxo2HCe9g1c8uZ96dDCupCzxBS_CeUB6JpJvy-iwBPfHX_G4Xp6lDKddKoEVaPg",
+        "publicKeyAlgorithm": -7,
+        "attestationObject": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVikSZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NFAAAAAQECAwQFBgcIAQIDBAUGBwgAIMJurao_ZNjqoCWGN7aTiSlRhBdNF55E-f4cPvWgzphPpQECAyYgASFYIHZqr08vpNVQZglcAx5rDNZak8aNhwnvYNXPLmfenQwrIlggqQs8QUvwnlAeiaSb8vosAT3x1_xuF6epQynXSqBFWj4"
+      },
+      "clientExtensionResults": {
+        "credProps": {
+          "rk": true
+        }
+      },
+      "authenticatorAttachment": "platform"
+    },
+    "extensions": {
+      "credProps": {
+        "rk": true
+      }
+    },
+    "server": {
+      "ok": true,
+      "registered": {
+        "id": "wm6tqj9k2OqgJYY3tpOJKVGEF00XnkT5_hw-9aDOmE8",
+        "publicKey": "pQECAyYgASFYIHZqr08vpNVQZglcAx5rDNZak8aNhwnvYNXPLmfenQwrIlggqQs8QUvwnlAeiaSb8vosAT3x1_xuF6epQynXSqBFWj4",
+        "algorithm": -7,
+        "signCount": 1,
+        "backupEligible": false,
+        "backupState": false,
+        "transports": ["internal"],
+        "origin": "http://localhost:8787",
+        "rpId": "localhost"
+      }
+    }
+  },
+  "registerAgain": {
+    "kind": "excluded",
+    "name": "InvalidStateError",
+    "message": "The user attempted to register an authenticator that contains one of the credentials already registered with the relying party."
+  },
+  "authenticate": {
+    "json": {
+      "id": "wm6tqj9k2OqgJYY3tpOJKVGEF00XnkT5_hw-9aDOmE8",
+      "rawId": "wm6tqj9k2OqgJYY3tpOJKVGEF00XnkT5_hw-9aDOmE8",
+      "type": "public-key",
+      "response": {
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiMUtwS0xKejF0bWZWZnJaNEZUSGp2elBzcE02VWk3emlMV2pfM1ZOVjYtQSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODc4NyIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAg",
+        "signature": "MEYCIQD5xHLf-nLmm1X5MshjJakEH7FFuznMtpuACwrOR7xwPgIhANV7ehwZKGKwx799GcSG26SWrbhLvhUbnOGU9PNoRwGb",
+        "userHandle": "dXNlci0x"
+      },
+      "clientExtensionResults": {},
+      "authenticatorAttachment": "platform"
+    },
+    "server": {
+      "ok": true,
+      "verified": {
+        "signCount": 2,
+        "backupEligible": false,
+        "backupState": false,
+        "userHandle": "dXNlci0x",
+        "origin": "http://localhost:8787",
+        "rpId": "localhost"
+      }
+    }
+  },
+  "credentials": [
+    {
+      "credentialId": "wm6tqj9k2OqgJYY3tpOJKVGEF00XnkT5/hw+9aDOmE8=",
+      "isResidentCredential": true,
+      "rpId": "localhost",
+      "userHandle": "dXNlci0x",
+      "signCount": 2
+    }
+  ]
+}

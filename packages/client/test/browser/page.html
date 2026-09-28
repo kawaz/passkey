@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>passkey-client browser check</title>
+  </head>
+  <body>
+    <input id="username" autocomplete="username webauthn" />
+    <pre id="log"></pre>
+    <script type="module">
+      import { authenticate, capabilities, context, register } from "/dist/index.js";
+
+      async function post(path, body) {
+        const response = await fetch(path, { method: "POST", body: JSON.stringify(body) });
+        return response.json();
+      }
+      const options = (path) => fetch(path).then((response) => response.json());
+
+      window.check = {
+        async environment() {
+          return { capabilities: await capabilities(), context: context() };
+        },
+        async register() {
+          const creation = await options("/registration-options");
+          const result = await register(creation);
+          return {
+            json: result.json,
+            extensions: result.extensions,
+            server: await post("/verify-registration", {
+              challenge: creation.challenge,
+              json: result.json,
+            }),
+          };
+        },
+        async authenticate() {
+          const request = await options("/authentication-options");
+          const result = await authenticate(request);
+          return {
+            json: result.json,
+            server: await post("/verify-authentication", {
+              challenge: request.challenge,
+              json: result.json,
+            }),
+          };
+        },
+        startConditional() {
+          const controller = new AbortController();
+          window.check.controller = controller;
+          window.check.conditional = options("/authentication-options").then(async (request) => {
+            try {
+              const result = await authenticate(request, {
+                mediation: "conditional",
+                signal: controller.signal,
+              });
+              return {
+                json: result.json,
+                server: await post("/verify-authentication", {
+                  challenge: request.challenge,
+                  json: result.json,
+                }),
+              };
+            } catch (error) {
+              return { kind: error.kind, name: error.cause?.name, message: error.message };
+            }
+          });
+          return "started";
+        },
+        async registerAgain() {
+          const creation = await options("/registration-options");
+          const known = window.check.lastId;
+          try {
+            await register({
+              ...creation,
+              excludeCredentials: [{ type: "public-key", id: known }],
+            });
+            return "resolved";
+          } catch (error) {
+            return { kind: error.kind, name: error.cause?.name, message: error.message };
+          }
+        },
+      };
+    </script>
+  </body>
+</html>
