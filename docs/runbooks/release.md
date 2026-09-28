@@ -20,11 +20,12 @@
 
 trusted publisher はパッケージが npm に存在しないと設定できないため、初回だけローカルから publish する。
 
-1. **main の最新で build する**
+1. **main を push してから build する** (手順 3 の release は push 済みの main を指す)
    ```bash
+   just push
    just ci
    ```
-   期待結果: lint / typecheck / test / build が通り、`packages/*/dist/` ができる
+   期待結果: push が通り、lint / typecheck / test / build も通って `packages/*/dist/` ができる
 
 2. **各パッケージをローカルから publish する**
    ```bash
