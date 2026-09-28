@@ -26,6 +26,15 @@ ccmsg 側の置き換え (ccmsg の issue `replace-webauthn-with-passkey-server`
 - [ ] b: server だけ先に 0.1.0 で公開 (client は配布形 DR-0003 の裁定後)
 - [ ] c: まだ公開しない (ccmsg 側の push は待つ)
 
+### 👺PK-Q5: DR-0003 (`@kawaz/passkey-client` の配布形) を accept するか
+
+[DR-0003](./decisions/DR-0003-client-distribution.md): ESM + 型 (tsc、現状どおり) に加えて、専用 entry `src/iife.ts` から `bun build --format=iife` で単一ファイルを出す。hyoui は `<script src>` で `window.passkeyClient`、cache-warden は同じファイルを `include_str!` で CSP nonce 付きインラインに埋める。文字列 export の module は出さない。
+
+- [ ] a (推奨): global 名 `passkeyClient`、minify なし + `.min.js` (sourcemap 付き) の 2 本、exports サブパスは `./iife` / `./iife.min` で accept
+- [ ] b: min 1 本だけにする
+- [ ] c: global 名を変える (チャットで名前を)
+- [ ] d: その他 (チャットで)
+
 ## 確認待ち
 
 (なし)
