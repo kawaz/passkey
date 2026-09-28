@@ -18,15 +18,6 @@
 
 ## 裁定待ち
 
-### 👺PK-Q3: DR-0002 (`@kawaz/passkey-server` の公開 API) を accept するか
-
-[DR-0002](./decisions/DR-0002-server-api.md) を同じ基準で改訂済み (options 生成 2 関数の追加、origin / rpId の複数受け、`topOrigins`、BE / BS の整合検査、`algorithms`、`userHandle` 照合 option、`transports` 返却)。実装は改訂前の範囲で入っており、差分は DR 末尾の「実装 TODO」。未決は 2 点。
-
-- [ ] a (推奨): 入力型は読むメンバーだけの部分型、BE の false → true 昇格は仕様どおり拒否 (option 無し) で accept
-- [ ] b: BE の昇格を通す option (`allowBackupEligibleUpgrade` 相当) を持つ
-- [ ] c: 入力型は lib.dom の Level 3 型そのまま
-- [ ] d: その他 (チャットで)
-
 ## 確認待ち
 
 (なし)

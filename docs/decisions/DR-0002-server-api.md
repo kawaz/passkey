@@ -1,6 +1,6 @@
 # DR-0002: `@kawaz/passkey-server` の公開 API
 
-- Status: Proposed (kawaz 裁定待ち)
+- Status: Accepted (2026-09-28、実装中)
 - Date: 2026-09-24
 
 ## Context
@@ -261,10 +261,9 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - 埋め込みで認証を通したい利用者は認証の `expected.topOrigins` に親ページの origin を渡す。Safari からの応答を通すには `embeddedWithoutTopOrigin: "allow"` も要る
 - `StoredCredential.backupEligible` を渡す利用者は、passkey が single-device から synced に昇格した時に `backup-eligibility` で拒否される (未決 2)
 
-### 未決 (kawaz 裁定)
+### 裁定済み (2026-09-28)
 
-1. 入力型を読むメンバーだけの構造的部分型にする (PK-Q3、推奨 a のまま)
-2. 認証で BE の false → true (single-device から synced への昇格) を通す option を持つか。仕様 §7.2 step 19 は両方向とも不一致を「verify」の対象にするが、webauthn-rs は `allow_backup_eligible_upgrade` を持ち "This is common on passkeys during some upgrades" と注記する。持つなら `StoredCredential.backupEligible` と対にする option になる。この DR では持たない (仕様どおり両方向拒否、`backupEligible` を渡さなければ比較しない) で書いた
+入力型は読むメンバーだけの構造的部分型、BE の false → true 昇格は仕様どおり不一致として拒否 (option は持たず、`StoredCredential.backupEligible` を渡さなければ比較しない) で確定。
 
 ### DR 改訂に伴う実装 TODO (`packages/server`、この DR では実装しない)
 
@@ -287,7 +286,6 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - [DESIGN-ja.md](../DESIGN-ja.md) server 節
 - [research/2026-09-24-passkey-usage-in-kawaz-repos.md](../research/2026-09-24-passkey-usage-in-kawaz-repos.md) 表 3
 - [DR-0001](DR-0001-client-api.md) (client が出す `json` の形と、client に渡す options JSON)
-- `docs/QUESTIONS.md` PK-Q3
 - WebAuthn Level 3 (W3C Recommendation, 2026-08-25): §5.1.3 step 5 user id の長さ、§5.4.4 `residentKey` の既定、§15.1 timeout の推奨、§5.8.8 hints、§7.1 / §7.2 RP の手順、§10.2 authenticator extensions、§13.4.3 challenge の長さ、§13.4.8 / §13.4.9 origin と topOrigin の検証
 - SimpleWebAuthn `@simplewebauthn/server` 14.0.2: `generateRegistrationOptions` / `generateAuthenticationOptions` / `verifyRegistrationResponse` / `verifyAuthenticationResponse`
 - webauthn-rs 0.6.1-dev: `webauthn-rs-core` の `generate_challenge_register` / `register_credential` / `generate_challenge_authenticate` / `authenticate_credential` / `origins_match`、`webauthn-rs` の `start_passkey_registration` / `finish_passkey_authentication`
