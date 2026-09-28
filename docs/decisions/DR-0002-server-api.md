@@ -1,6 +1,6 @@
 # DR-0002: `@kawaz/passkey-server` の公開 API
 
-- Status: Accepted (2026-09-28、実装中)
+- Status: Accepted (2026-09-28)、実装済 (`packages/server`)
 - Date: 2026-09-24
 
 ## Context
@@ -71,7 +71,7 @@ interface AuthenticationOptionsInput {
 
 /** 読むメンバーだけの構造的部分型。lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` はそのまま代入できる */
 type RegistrationResponse = { rawId: string; response: { clientDataJSON: string; attestationObject: string; transports?: string[] } };
-type AuthenticationResponse = { rawId: string; response: { clientDataJSON: string; authenticatorData: string; signature: string; userHandle?: string } };
+type AuthenticationResponse = { rawId: string; response: { clientDataJSON: string; authenticatorData: string; signature: string; userHandle?: string | null } };
 
 interface PasskeyExpectation {
   challenge: string;

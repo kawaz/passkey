@@ -13,7 +13,7 @@ export type SoftAlgorithm = "ES256" | "EdDSA" | "RS256";
 export class SoftAuthenticator {
   #keys: CryptoKeyPair | undefined;
   readonly algorithm: SoftAlgorithm;
-  readonly credentialId = crypto.getRandomValues(new Uint8Array(16));
+  readonly credentialId: Uint8Array;
   signCount = 0;
   /** What the browser writes beside the origin.
    *
@@ -21,6 +21,9 @@ export class SoftAuthenticator {
    * Chromium does on every message. Both are a same-origin exchange and both
    * have to be admitted, which is what having the choice here is for. */
   crossOrigin: boolean | undefined;
+  /** The origin of the page that embeds the one running the exchange, which
+   * a browser writes beside `crossOrigin: true`. */
+  topOrigin: string | undefined;
   /** Whether the person was verified. An authenticator asked for
    * `userVerification: "required"` always says yes; one that says no is what a
    * relying party has to turn away. */
@@ -41,8 +44,12 @@ export class SoftAuthenticator {
 
   readonly rpId: string;
 
-  constructor(rpId: string, options: { crossOrigin?: boolean; algorithm?: SoftAlgorithm } = {}) {
+  constructor(
+    rpId: string,
+    options: { crossOrigin?: boolean; algorithm?: SoftAlgorithm; credentialIdLength?: number } = {},
+  ) {
     this.rpId = rpId;
+    this.credentialId = crypto.getRandomValues(new Uint8Array(options.credentialIdLength ?? 16));
     this.crossOrigin = options.crossOrigin;
     this.algorithm = options.algorithm ?? "ES256";
   }
@@ -166,6 +173,7 @@ export class SoftAuthenticator {
         challenge,
         origin,
         ...(this.crossOrigin === undefined ? {} : { crossOrigin: this.crossOrigin }),
+        ...(this.topOrigin === undefined ? {} : { topOrigin: this.topOrigin }),
       }),
     );
   }

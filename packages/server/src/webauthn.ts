@@ -23,16 +23,56 @@ const RS256 = -257;
 
 export type PasskeyAlgorithm = typeof ES256 | typeof EdDSA | typeof RS256;
 
-const SUPPORTED_ALGORITHMS: readonly number[] = [ES256, EdDSA, RS256];
+export const SUPPORTED_ALGORITHMS: readonly PasskeyAlgorithm[] = [ES256, EdDSA, RS256];
+
+/** The longest credential id a registration may carry (L3 §7.1 step 25). */
+const MAX_CREDENTIAL_ID_LENGTH = 1023;
+
+/** The members of a registration's `toJSON()` form that are read. The Level 3 `RegistrationResponseJSON` is assignable as it is; a caller mapping its own stored contract fills in these and nothing else. */
+export interface RegistrationResponse {
+  readonly rawId: string;
+  readonly response: {
+    readonly clientDataJSON: string;
+    readonly attestationObject: string;
+    readonly transports?: readonly string[];
+  };
+}
+
+/** The members of an authentication's `toJSON()` form that are read. The Level 3 `AuthenticationResponseJSON` is assignable as it is. A `userHandle` of `null` is read as absent. */
+export interface AuthenticationResponse {
+  readonly rawId: string;
+  readonly response: {
+    readonly clientDataJSON: string;
+    readonly authenticatorData: string;
+    readonly signature: string;
+    readonly userHandle?: string | null;
+  };
+}
 
 /** What the relying party expects of one ceremony. */
 export interface PasskeyExpectation {
   /** The challenge it issued, base64url as the client data states it. */
   readonly challenge: string;
-  /** The origin of the page that runs the ceremony, compared exactly (scheme / host / port). */
-  readonly origin: string;
-  /** The relying party id, whose SHA-256 the authenticator data carries. */
-  readonly rpId: string;
+  /** The origin of the page that runs the ceremony, compared exactly (scheme / host / port). Given several, the exchange has to match one of them. */
+  readonly origin: string | readonly string[];
+  /** The relying party id, whose SHA-256 the authenticator data carries. Given several, the hash has to be one of theirs. */
+  readonly rpId: string | readonly string[];
+  /** The origins of the pages this one may be embedded in (a cross-origin iframe), compared exactly with `topOrigin`. Without it, an exchange that says it was embedded is refused. */
+  readonly topOrigins?: readonly string[];
+  /** What to do with `crossOrigin: true` that names no `topOrigin` (Safari sends none) when `topOrigins` is given. Defaults to `"reject"`. */
+  readonly embeddedWithoutTopOrigin?: "reject" | "allow";
+}
+
+/** What the relying party expects of a registration. */
+export interface RegistrationExpectation extends PasskeyExpectation {
+  /** The algorithms the options listed in `pubKeyCredParams`. Defaults to all three verified here. */
+  readonly algorithms?: readonly PasskeyAlgorithm[];
+}
+
+/** What the relying party expects of an authentication. */
+export interface AuthenticationExpectation extends PasskeyExpectation {
+  /** The user handle (base64url) of the account identified before the ceremony, when one was. A response that carries a user handle has to carry this one. */
+  readonly userHandle?: string;
 }
 
 /** What a verified registration leaves behind, for the caller to store. */
@@ -47,6 +87,12 @@ export interface RegisteredCredential {
   readonly backupEligible: boolean;
   /** The BS flag: whether it was backed up at this moment. */
   readonly backupState: boolean;
+  /** `response.transports` as the browser reported it, to be listed in `allowCredentials` later; `[]` when it reported none. */
+  readonly transports: readonly string[];
+  /** The expected origin the exchange matched. */
+  readonly origin: string;
+  /** The expected relying party id the authenticator answered for. */
+  readonly rpId: string;
 }
 
 /** The stored half an authentication is verified against. */
@@ -55,6 +101,8 @@ export interface StoredCredential {
   readonly publicKey: string;
   /** The last counter reading stored for the credential. */
   readonly signCount: number;
+  /** The BE flag the registration returned. Given, the authentication has to report the same (L3 §7.2 step 19). */
+  readonly backupEligible?: boolean;
 }
 
 /** What a verified authentication reports. */
@@ -65,6 +113,10 @@ export interface VerifiedAuthentication {
   readonly backupState: boolean;
   /** The user handle a discoverable credential answered with, base64url, when it answered with one. Matching it to an account is the caller's. */
   readonly userHandle?: string;
+  /** The expected origin the exchange matched. */
+  readonly origin: string;
+  /** The expected relying party id the authenticator answered for. */
+  readonly rpId: string;
 }
 
 /** What the browser said about the exchange it ran, as the parts that are checked here. Fields beyond these are left alone: a browser may add them, and the two that must be absent are refused by name below. */
@@ -152,11 +204,17 @@ export function challengeOf(clientDataJSON: string): string {
   return challenge;
 }
 
-/** What the two ceremonies check in common (L3 §7.1 steps 7-11, §7.2 steps 11-15): what the browser was doing, which challenge it answered, which page asked, and that the answer belongs to one page rather than an embedded one. */
+/** What the two ceremonies check in common (L3 §7.1 steps 7-11, §7.2 steps 10-14): what the browser was doing, which challenge it answered, which page asked, and whether it ran inside a page that embeds it. Answers the expected origin that matched. */
 export function checkClientData(
   clientDataJson: Uint8Array,
-  expected: { type: string; challenge: string; origin: string },
-): void {
+  expected: {
+    type: string;
+    challenge: string;
+    origin: string | readonly string[];
+    topOrigins?: readonly string[] | undefined;
+    embeddedWithoutTopOrigin?: "reject" | "allow" | undefined;
+  },
+): string {
   const parsed = parseClientData(clientDataJson);
   if (parsed.type !== expected.type) {
     throw new PasskeyVerificationError("type", `the client data is for ${String(parsed.type)}`);
@@ -164,24 +222,69 @@ export function checkClientData(
   if (typeof parsed.challenge !== "string" || !equalStrings(parsed.challenge, expected.challenge)) {
     throw new PasskeyVerificationError("challenge", "the client data answers another challenge");
   }
-  if (typeof parsed.origin !== "string" || parsed.origin !== expected.origin) {
+  const origins = typeof expected.origin === "string" ? [expected.origin] : expected.origin;
+  const origin = origins.find((candidate) => candidate === parsed.origin);
+  if (origin === undefined) {
     throw new PasskeyVerificationError(
       "origin",
-      `${String(parsed.origin)} is not ${expected.origin}`,
+      `${String(parsed.origin)} is not ${origins.join(" or ")}`,
     );
   }
-  // What is refused is an exchange an embedding page ran, which is what either of these says when it is there to say it. `crossOrigin: false` is not that: Chromium writes the field on every message, and reading its presence as the refusal would turn away every credential those browsers make. `topOrigin` is only ever written when the exchange was cross-origin, so its presence at all is the refusal.
-  if (parsed.crossOrigin === true || parsed.topOrigin !== undefined) {
+  checkEmbedding(parsed, expected.topOrigins, expected.embeddedWithoutTopOrigin ?? "reject");
+  return origin;
+}
+
+/** Whether the exchange ran inside another page, and if so whether that page is one the relying party expects to be embedded in (L3 §7.1 steps 10-11, §7.2 steps 13-14).
+ *
+ * An embedded exchange is what either `crossOrigin: true` or a `topOrigin` says when it is there to say it. `crossOrigin: false` is not that: Chromium writes the field on every message, and reading its presence as the refusal would turn away every credential those browsers make. `topOrigin` is only ever written when the exchange was cross-origin, so one that arrives beside anything but `crossOrigin: true` describes no exchange a browser runs and is refused whatever the allow-list says. */
+function checkEmbedding(
+  parsed: ClientData,
+  topOrigins: readonly string[] | undefined,
+  withoutTopOrigin: "reject" | "allow",
+): void {
+  const crossOrigin = parsed.crossOrigin === true;
+  const { topOrigin } = parsed;
+  if (!crossOrigin && topOrigin === undefined) return;
+  if (topOrigins === undefined) {
     throw new PasskeyVerificationError(
       "embedded",
       "this exchange must not be run from an embedded page",
     );
   }
+  if (topOrigin === undefined) {
+    if (withoutTopOrigin === "allow") return;
+    throw new PasskeyVerificationError(
+      "embedded",
+      "an embedded exchange that names no top origin is not admitted",
+    );
+  }
+  if (!crossOrigin) {
+    throw new PasskeyVerificationError(
+      "embedded",
+      "a top origin is named for an exchange that was not cross-origin",
+    );
+  }
+  if (typeof topOrigin !== "string" || !topOrigins.includes(topOrigin)) {
+    throw new PasskeyVerificationError(
+      "embedded",
+      `${JSON.stringify(topOrigin)} is not a page this one may be embedded in`,
+    );
+  }
 }
 
-/** The relying party and the person, as every ceremony states them. */
-export async function checkAuthenticator(data: AuthenticatorData, rpId: string): Promise<void> {
-  if (!equalBytes(data.rpIdHash, await sha256(rpId))) {
+/** The relying party, the person and the backup flags, as every ceremony states them (L3 §7.1 steps 14-17, §7.2 steps 15-18). Answers the expected relying party id the authenticator answered for. */
+export async function checkAuthenticator(
+  data: AuthenticatorData,
+  rpId: string | readonly string[],
+): Promise<string> {
+  let matched: string | undefined;
+  for (const candidate of typeof rpId === "string" ? [rpId] : rpId) {
+    if (equalBytes(data.rpIdHash, await sha256(candidate))) {
+      matched = candidate;
+      break;
+    }
+  }
+  if (matched === undefined) {
     throw new PasskeyVerificationError(
       "rp-id",
       "the authenticator answered for another relying party",
@@ -193,19 +296,28 @@ export async function checkAuthenticator(data: AuthenticatorData, rpId: string):
   if ((data.flags & FLAG_USER_VERIFIED) === 0) {
     throw new PasskeyVerificationError("user-verified", "no person was verified");
   }
+  if ((data.flags & FLAG_BACKUP_ELIGIBLE) === 0 && (data.flags & FLAG_BACKUP_STATE) !== 0) {
+    throw new PasskeyVerificationError(
+      "backup-state",
+      "a credential that may not be backed up says it was",
+    );
+  }
+  return matched;
 }
 
 /** Check a registration (L3 §7.1) and answer what is worth storing.
  *
- * Attestation is `none`: what this reads out of the attestation object is the authenticator data and the key — there is no statement about the hardware to verify, and one that arrived would mean the page asked for something other than `attestation: "none"`. Only `rawId`, `response.clientDataJSON` and `response.attestationObject` are read; the convenience copies Level 3 adds beside them (`response.authenticatorData`, `response.publicKey`, `response.publicKeyAlgorithm`) are derived from the attestation object by the browser and are not trusted apart from it. */
+ * Attestation is `none`: what this reads out of the attestation object is the authenticator data and the key — there is no statement about the hardware to verify, and one that arrived would mean the page asked for something other than `attestation: "none"`. Only `rawId`, `response.clientDataJSON`, `response.attestationObject` and `response.transports` are read; the convenience copies Level 3 adds beside them (`response.authenticatorData`, `response.publicKey`, `response.publicKeyAlgorithm`) are derived from the attestation object by the browser and are not trusted apart from it. */
 export async function verifyRegistration(
-  response: RegistrationResponseJSON,
-  expected: PasskeyExpectation,
+  response: RegistrationResponse,
+  expected: RegistrationExpectation,
 ): Promise<RegisteredCredential> {
-  checkClientData(base64UrlDecode(response.response.clientDataJSON), {
+  const origin = checkClientData(base64UrlDecode(response.response.clientDataJSON), {
     type: "webauthn.create",
     challenge: expected.challenge,
     origin: expected.origin,
+    topOrigins: expected.topOrigins,
+    embeddedWithoutTopOrigin: expected.embeddedWithoutTopOrigin,
   });
   let attestation: CborValue;
   try {
@@ -239,7 +351,7 @@ export async function verifyRegistration(
     );
   }
   const data = parseAuthenticatorData(authData);
-  await checkAuthenticator(data, expected.rpId);
+  const rpId = await checkAuthenticator(data, expected.rpId);
   // An empty id is a credential nothing can name later: `allowCredentials` has no way to point at it, so a registration that carries one records a key no authentication will ever reach.
   if (
     data.credentialId === undefined ||
@@ -247,6 +359,12 @@ export async function verifyRegistration(
     data.publicKey === undefined
   ) {
     throw new PasskeyVerificationError("credential", "the registration carries no credential");
+  }
+  if (data.credentialId.length > MAX_CREDENTIAL_ID_LENGTH) {
+    throw new PasskeyVerificationError(
+      "credential",
+      `the credential id is longer than ${String(MAX_CREDENTIAL_ID_LENGTH)} bytes`,
+    );
   }
   // The id the browser reported and the one the authenticator signed are the same value by construction; comparing them is what says the two halves of the message describe one credential.
   if (!equalBytes(data.credentialId, base64UrlDecode(response.rawId))) {
@@ -256,7 +374,16 @@ export async function verifyRegistration(
     );
   }
   // A key that cannot be imported is a credential that can never be used; finding that out at the first authentication leaves a stored record nobody can explain.
-  const algorithm = await checkPublicKey(data.publicKey);
+  const { key, alg: algorithm } = readKey(data.publicKey);
+  if (!(expected.algorithms ?? SUPPORTED_ALGORITHMS).includes(algorithm)) {
+    throw new PasskeyVerificationError(
+      "algorithm",
+      `the key's algorithm ${String(algorithm)} is not one the options listed`,
+    );
+  }
+  await importPublicKey(key, algorithm);
+  // Read as unknown: the type says what a caller should send, and a caller writing JavaScript may send anything.
+  const { transports } = response.response as { transports?: unknown };
   return {
     id: base64UrlEncode(data.credentialId),
     publicKey: base64UrlEncode(data.publicKey),
@@ -264,26 +391,55 @@ export async function verifyRegistration(
     signCount: data.signCount,
     backupEligible: (data.flags & FLAG_BACKUP_ELIGIBLE) !== 0,
     backupState: (data.flags & FLAG_BACKUP_STATE) !== 0,
+    transports:
+      Array.isArray(transports) && transports.every((item) => typeof item === "string")
+        ? [...(transports as string[])]
+        : [],
+    origin,
+    rpId,
   };
 }
 
-/** Check an authentication (L3 §7.2) against the key a registration left behind. Finding the stored credential by `rawId` and matching `userHandle` to an account are the caller's. */
+/** Check an authentication (L3 §7.2) against the key a registration left behind. Finding the stored credential by `rawId`, and the account by `userHandle` when none was identified beforehand, are the caller's. */
 export async function verifyAuthentication(
-  response: AuthenticationResponseJSON,
-  expected: PasskeyExpectation,
+  response: AuthenticationResponse,
+  expected: AuthenticationExpectation,
   credential: StoredCredential,
 ): Promise<VerifiedAuthentication> {
+  const userHandle = response.response.userHandle ?? undefined;
+  if (
+    expected.userHandle !== undefined &&
+    userHandle !== undefined &&
+    !equalBytes(base64UrlDecode(userHandle), base64UrlDecode(expected.userHandle))
+  ) {
+    throw new PasskeyVerificationError(
+      "user-handle",
+      "the credential answered for another user account",
+    );
+  }
   const clientDataJson = base64UrlDecode(response.response.clientDataJSON);
-  checkClientData(clientDataJson, {
+  const origin = checkClientData(clientDataJson, {
     type: "webauthn.get",
     challenge: expected.challenge,
     origin: expected.origin,
+    topOrigins: expected.topOrigins,
+    embeddedWithoutTopOrigin: expected.embeddedWithoutTopOrigin,
   });
   const authData = base64UrlDecode(response.response.authenticatorData);
   const data = parseAuthenticatorData(authData);
-  await checkAuthenticator(data, expected.rpId);
-  // A synced passkey reports zero forever, and an authenticator that keeps a counter only ever counts up. So once a non-zero reading has been stored, every later one has to be higher — including a zero, which from an authenticator that was counting is a different device answering with a copy of the credential.
-  if (credential.signCount !== 0 && data.signCount <= credential.signCount) {
+  const rpId = await checkAuthenticator(data, expected.rpId);
+  const backupEligible = (data.flags & FLAG_BACKUP_ELIGIBLE) !== 0;
+  if (credential.backupEligible !== undefined && credential.backupEligible !== backupEligible) {
+    throw new PasskeyVerificationError(
+      "backup-eligibility",
+      "the credential's backup eligibility is not the one it was registered with",
+    );
+  }
+  // A synced passkey reports zero forever, and an authenticator that keeps a counter only ever counts up. So once either reading is non-zero, every later one has to be higher — including a zero, which from an authenticator that was counting is a different device answering with a copy of the credential.
+  if (
+    (data.signCount !== 0 || credential.signCount !== 0) &&
+    data.signCount <= credential.signCount
+  ) {
     throw new PasskeyVerificationError("sign-count", "the authenticator's counter did not advance");
   }
   const signed = new Uint8Array(authData.length + 32);
@@ -296,12 +452,13 @@ export async function verifyAuthentication(
   );
   if (!ok)
     throw new PasskeyVerificationError("signature", "the signature is not this credential's");
-  const { userHandle } = response.response;
   return {
     signCount: data.signCount,
-    backupEligible: (data.flags & FLAG_BACKUP_ELIGIBLE) !== 0,
+    backupEligible,
     backupState: (data.flags & FLAG_BACKUP_STATE) !== 0,
     ...(userHandle === undefined ? {} : { userHandle }),
+    origin,
+    rpId,
   };
 }
 
@@ -317,7 +474,7 @@ function readKey(cose: Uint8Array): { key: CborValue; alg: PasskeyAlgorithm } {
     );
   }
   const alg = mapEntry(key, 3);
-  if (typeof alg !== "number" || !SUPPORTED_ALGORITHMS.includes(alg)) {
+  if (typeof alg !== "number" || !(SUPPORTED_ALGORITHMS as readonly number[]).includes(alg)) {
     throw new PasskeyVerificationError("public-key", "the key names no algorithm verified here");
   }
   return { key, alg: alg as PasskeyAlgorithm };

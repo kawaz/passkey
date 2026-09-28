@@ -161,6 +161,7 @@ function libraryAssertion(
   credential: AuthenticationResponseJSON,
   publicKey: string,
   counter: number,
+  expectedTopOrigin?: string,
 ) {
   return verifyAuthenticationResponse({
     response: {
@@ -180,6 +181,7 @@ function libraryAssertion(
     expectedChallenge: challenge,
     expectedOrigin: origin,
     expectedRPID: rpId,
+    ...(expectedTopOrigin === undefined ? {} : { expectedTopOrigin }),
     credential: {
       id: credential.rawId,
       publicKey: Uint8Array.from(base64UrlDecode(publicKey)),
@@ -423,6 +425,62 @@ describe("認証の署名と独立検証器との比較", () => {
         await accept(() => libraryAssertion(candidate, publicKey, counter)),
       ]).toEqual([name, accepted, accepted]);
     }
+  });
+
+  test("埋め込みの受理表を SimpleWebAuthn の expectedTopOrigin と照らす (違いは Safari 形の扱いだけ)", async () => {
+    const parent = "https://portal.example";
+    const { authenticator, credential } = await registration();
+    const publicKey = (await verifyRegistration(credential, expectedRegistration)).publicKey;
+    // clientDataJSON を後から書き換えると署名が合わなくなるので、形ごとに authenticator に署名させる。
+    const shapes: [string, { crossOrigin?: boolean; topOrigin?: string }][] = [
+      ["top-level", {}],
+      ["crossOrigin: false", { crossOrigin: false }],
+      ["許可した親", { crossOrigin: true, topOrigin: parent }],
+      ["別の親", { crossOrigin: true, topOrigin: "https://evil.example" }],
+      ["topOrigin 無しの crossOrigin: true (Safari)", { crossOrigin: true }],
+      ["crossOrigin 無しの topOrigin", { topOrigin: parent }],
+    ];
+    // [ours, SimpleWebAuthn] の受理。上段は許可リストあり、下段は許可リストなし。
+    const withList: Record<string, [boolean, boolean]> = {};
+    const withoutList: Record<string, [boolean, boolean]> = {};
+    for (const [name, shape] of shapes) {
+      authenticator.crossOrigin = shape.crossOrigin;
+      authenticator.topOrigin = shape.topOrigin;
+      const candidate = await authenticator.get({ challenge, origin });
+      withList[name] = [
+        await accept(() =>
+          verifyAuthentication(
+            candidate,
+            { ...expectedAssertion, topOrigins: [parent], embeddedWithoutTopOrigin: "allow" },
+            { publicKey, signCount: 0 },
+          ),
+        ),
+        await accept(() => libraryAssertion(candidate, publicKey, 0, parent)),
+      ];
+      withoutList[name] = [
+        await accept(() =>
+          verifyAuthentication(candidate, expectedAssertion, { publicKey, signCount: 0 }),
+        ),
+        await accept(() => libraryAssertion(candidate, publicKey, 0)),
+      ];
+    }
+    expect(withList).toEqual({
+      "top-level": [true, true],
+      "crossOrigin: false": [true, true],
+      許可した親: [true, true],
+      別の親: [false, false],
+      "topOrigin 無しの crossOrigin: true (Safari)": [true, true],
+      "crossOrigin 無しの topOrigin": [false, false],
+    });
+    // 許可リストなしで Safari 形を SimpleWebAuthn は通し、こちらは既定 "reject" で拒否する (DR-0002 の既定を最も安全な側に置く方針)。
+    expect(withoutList).toEqual({
+      "top-level": [true, true],
+      "crossOrigin: false": [true, true],
+      許可した親: [false, false],
+      別の親: [false, false],
+      "topOrigin 無しの crossOrigin: true (Safari)": [false, true],
+      "crossOrigin 無しの topOrigin": [false, false],
+    });
   });
 
   test("登録の正例と CBOR・rpIdHash・flags・challenge の異常形を両検証器で照らす", async () => {

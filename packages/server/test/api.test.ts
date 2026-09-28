@@ -53,6 +53,8 @@ describe("the public surface", () => {
       backupEligible: true,
       backupState: false,
       userHandle: "dXNlci0x",
+      origin,
+      rpId,
     });
   });
 
