@@ -18,25 +18,6 @@
 
 ## 裁定待ち
 
-### 👺PK-Q1: server は認証 (assertion) で埋め込み (`crossOrigin` / `topOrigin`) をどう扱うか
-
-[DR-0002](./decisions/DR-0002-server-api.md) Decision 5 の形: 既定は拒否、`expected.topOrigins: string[]` (許可する親ページの origin) に一致する `topOrigin` なら通す (SimpleWebAuthn の `expectedTopOrigin` と同型、仕様 §7.2 の「RP が期待する埋め込み元か検証」に沿う)。残る裁定は Safari が `topOrigin` を送らない場合の既定。
-
-- [ ] a (推奨): `embeddedWithoutTopOrigin` の既定は `"reject"`。hyoui のように Safari の iframe でも通したい利用者だけ `"allow"` を明示 (その時の埋め込み元の検証は `origin` + `rpIdHash` だけ)
-- [ ] b: 既定 `"allow"` (現行 hyoui と同じ緩さが既定になる)
-- [ ] c: 登録・認証とも拒否固定、option 無し (hyoui の iframe 内サインインは対象外)
-
-### 👺PK-Q2: DR-0001 (`@kawaz/passkey-client` の公開 API) を accept するか
-
-[DR-0001](./decisions/DR-0001-client-api.md) を「使っていない機能を削らず、仕様 §7 と SimpleWebAuthn / webauthn-rs の共通機能は持つ」基準で改訂済み。未決 2 点。
-
-- [ ] a (推奨): 未決 2 点とも DR のとおり (`kind` に `excluded` を足す / `context().allowed` で permissions policy を事前に読む) で accept
-- [ ] b: `excluded` は足さない (3 値のまま、`cause.name` で見る)
-- [ ] c: `context().allowed` は持たない
-- [ ] d: その他 (チャットで)
-
-条件付き登録 (conditionalCreate) は仕様が UP / UV 無しを前提にするため、DESIGN の UV 必須と衝突し不採用にしている。UV 必須を緩めない限り持てないので、ここは基準 3 (譲らない点) の帰結として了承してほしい。
-
 ### 👺PK-Q3: DR-0002 (`@kawaz/passkey-server` の公開 API) を accept するか
 
 [DR-0002](./decisions/DR-0002-server-api.md) を同じ基準で改訂済み (options 生成 2 関数の追加、origin / rpId の複数受け、`topOrigins`、BE / BS の整合検査、`algorithms`、`userHandle` 照合 option、`transports` 返却)。実装は改訂前の範囲で入っており、差分は DR 末尾の「実装 TODO」。未決は PK-Q1 のほかに 2 点。

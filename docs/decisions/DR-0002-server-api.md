@@ -18,7 +18,7 @@
 
 既に決まっていて覆さないこと:
 
-- 認証で `topOrigin` の無い `crossOrigin: true` をどう扱うかは `docs/QUESTIONS.md` PK-Q1 で裁定待ち。この DR は「既定は拒否、許可リストで通す」の形を決め、PK-Q1 の結論で option の既定を確定する
+- 埋め込みは「既定は拒否、`topOrigins` 許可リストで通す、`topOrigin` の無い `crossOrigin: true` は既定 `"reject"` で option で `"allow"`」で確定 (2026-09-28 裁定)
 - challenge の発行・保存・消費、credential の保存と引き当て、userHandle から利用者を引くこと、credential id が未登録であることの確認 (§7.1 step 26) は呼び出し側の責務。パッケージは状態を持たないので、保存を要する検査は「期待値を渡せる option」の形で持つ
 
 ### 目的
@@ -81,7 +81,7 @@ interface PasskeyExpectation {
   rpId: string | string[];
   /** 埋め込み (cross-origin iframe) から来た応答を通す親ページの origin の許可リスト。省略時は `crossOrigin: true` と `topOrigin` の存在をどちらも拒否 */
   topOrigins?: string[];
-  /** `topOrigins` があるのに `topOrigin` を持たない `crossOrigin: true` (Safari の挙動) の扱い。既定は `"reject"` (PK-Q1) */
+  /** `topOrigins` があるのに `topOrigin` を持たない `crossOrigin: true` (Safari の挙動) の扱い。既定は `"reject"` */
   embeddedWithoutTopOrigin?: "reject" | "allow";
 }
 interface RegistrationExpectation extends PasskeyExpectation {
@@ -258,14 +258,13 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - base64url の読み取りは `Buffer` より厳格 (アルファベット外の文字と、どの符号化でも出ない長さを拒否する。末尾 `=` は許す)
 - `clientDataJSON` が JSON object でない場合 (`null` や数値) は `client-data` で拒否する
 - 鍵の読み取り・import の失敗と、WebCrypto が受け付けない署名 (長さ違い等) も `PasskeyVerificationError` にまとめる (呼び出し側が `DOMException` を扱わなくてよい)
-- 埋め込みで認証を通したい利用者は認証の `expected.topOrigins` に親ページの origin を渡す。Safari からの応答を通すには `embeddedWithoutTopOrigin: "allow"` も要る (PK-Q1 の結論次第で既定が変わる)
+- 埋め込みで認証を通したい利用者は認証の `expected.topOrigins` に親ページの origin を渡す。Safari からの応答を通すには `embeddedWithoutTopOrigin: "allow"` も要る
 - `StoredCredential.backupEligible` を渡す利用者は、passkey が single-device から synced に昇格した時に `backup-eligibility` で拒否される (未決 2)
 
 ### 未決 (kawaz 裁定)
 
 1. 入力型を読むメンバーだけの構造的部分型にする (PK-Q3、推奨 a のまま)
 2. 認証で BE の false → true (single-device から synced への昇格) を通す option を持つか。仕様 §7.2 step 19 は両方向とも不一致を「verify」の対象にするが、webauthn-rs は `allow_backup_eligible_upgrade` を持ち "This is common on passkeys during some upgrades" と注記する。持つなら `StoredCredential.backupEligible` と対にする option になる。この DR では持たない (仕様どおり両方向拒否、`backupEligible` を渡さなければ比較しない) で書いた
-3. 認証で `topOrigin` の無い `crossOrigin: true` の既定 (`embeddedWithoutTopOrigin`) — PK-Q1
 
 ### DR 改訂に伴う実装 TODO (`packages/server`、この DR では実装しない)
 
@@ -288,7 +287,7 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - [DESIGN-ja.md](../DESIGN-ja.md) server 節
 - [research/2026-09-24-passkey-usage-in-kawaz-repos.md](../research/2026-09-24-passkey-usage-in-kawaz-repos.md) 表 3
 - [DR-0001](DR-0001-client-api.md) (client が出す `json` の形と、client に渡す options JSON)
-- `docs/QUESTIONS.md` PK-Q1 / PK-Q3
+- `docs/QUESTIONS.md` PK-Q3
 - WebAuthn Level 3 (W3C Recommendation, 2026-08-25): §5.1.3 step 5 user id の長さ、§5.4.4 `residentKey` の既定、§15.1 timeout の推奨、§5.8.8 hints、§7.1 / §7.2 RP の手順、§10.2 authenticator extensions、§13.4.3 challenge の長さ、§13.4.8 / §13.4.9 origin と topOrigin の検証
 - SimpleWebAuthn `@simplewebauthn/server` 14.0.2: `generateRegistrationOptions` / `generateAuthenticationOptions` / `verifyRegistrationResponse` / `verifyAuthenticationResponse`
 - webauthn-rs 0.6.1-dev: `webauthn-rs-core` の `generate_challenge_register` / `register_credential` / `generate_challenge_authenticate` / `authenticate_credential` / `origins_match`、`webauthn-rs` の `start_passkey_registration` / `finish_passkey_authentication`

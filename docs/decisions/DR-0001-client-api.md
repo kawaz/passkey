@@ -1,6 +1,6 @@
 # DR-0001: `@kawaz/passkey-client` の公開 API
 
-- Status: Proposed (kawaz 裁定待ち)
+- Status: Accepted (2026-09-28、未実装)
 - Date: 2026-09-24
 
 ## Context
@@ -208,10 +208,9 @@ options JSON の展開は、Level 3 §10 が JSON 形を定義する拡張全部
 - PWA (standalone) で困った事象が出たら、その時に条件付き UI の表示 / hybrid transport (QR) / `NotAllowedError` の出方 / `allowed` の値を実機で表にして `context()` の説明に反映する
 - DESIGN の client 節は「可否判定」を `capabilities()` の語彙に、「iframe と PWA での制約」を `context()` の 3 キーに書き換える (裁定後)
 
-### 未決 (kawaz 裁定)
+### 裁定済み (2026-09-28)
 
-1. `PasskeyError.kind` に `excluded` (登録の `InvalidStateError`) を足す。参照実装は片方 (SimpleWebAuthn) だけが持ち、仕様 §7.1 step 2 が案内を分ける例として挙げる失敗。3 値 (`declined` / `aborted` / `failed`) に留めて `cause.name === "InvalidStateError"` を利用者に見させる案との比較で、4 値目を採った
-2. `context().allowed` (permissions policy の事前読み取り) を採る。`document.permissionsPolicy` の無いブラウザで「不明」しか返せない点は、キーの省略で表す
+`PasskeyError.kind` の `excluded` と `context().allowed` はどちらも採用で確定。
 
 ## 受け入れ条件の突き合わせ: research 表 2 × 採用案
 
