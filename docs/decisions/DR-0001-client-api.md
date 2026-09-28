@@ -18,7 +18,7 @@ client はブラウザの差 (`toJSON()` / `parse*OptionsFromJSON()` / `getClien
 
 既に決まっていて覆さないこと:
 
-- server が認証で `crossOrigin` / `topOrigin` をどう扱うかは `docs/QUESTIONS.md` PK-Q1 で裁定待ち。この DR はそれに依存せず、client は iframe 内の `get()` を事前に塞がない
+- server の埋め込み (`crossOrigin` / `topOrigin`) の扱いは [DR-0002](DR-0002-server-api.md) が決める。client は iframe 内の `get()` を事前に塞がない
 - ブラウザの対応状況 (裏取り済み): `getAuthenticatorData()` / `getPublicKey()` / `getPublicKeyAlgorithm()` は Chrome 85 / Firefox 119 / Safari 16。passkey 自体が Safari 16 / Chrome 108 以降なので、passkey は使えるが getter が無い環境は無い。`toJSON()` / `parse*OptionsFromJSON()` は Chrome 129 / Firefox 119 / Safari 18.4 で、iOS 16〜18.3 と Chrome 108〜128 は passkey が使えるが無い。`getClientCapabilities()` は Chrome 133 / Firefox 135 / Safari 17.4
 
 ### 目的
@@ -204,7 +204,7 @@ options JSON の展開は、Level 3 §10 が JSON 形を定義する拡張全部
 - 拡張の展開は §10 の 5 つ。IANA 登録だけの拡張を JSON 形で渡す利用者が出たら、その拡張の展開規則をこの DR の表に足す
 - `excluded` を受けた画面は「この authenticator は登録済み」の文言を出せる。`declined` と分けない利用者は `kind !== "failed"` で今までどおり畳める
 - 配布形の issue に対して API が課す制約: top-level の副作用を持たない、外部依存を持たない、動的 import を使わない (CSP nonce 下のインライン 1 本と `window.*` の IIFE の両方をこの 1 つのソースから出せるように)
-- server 側 (PK-Q1) がどう裁定されても client は変わらない。`context().embedded` / `allowed` の事実と `declined` の失敗だけを返し、埋め込みでの認証を通すかは server と利用者が決める
+- server 側の埋め込み方針 (DR-0002) に client は依存しない。`context().embedded` / `allowed` の事実と `declined` の失敗だけを返し、埋め込みでの認証を通すかは server と利用者が決める
 - PWA (standalone) で困った事象が出たら、その時に条件付き UI の表示 / hybrid transport (QR) / `NotAllowedError` の出方 / `allowed` の値を実機で表にして `context()` の説明に反映する
 - DESIGN の client 節は「可否判定」を `capabilities()` の語彙に、「iframe と PWA での制約」を `context()` の 3 キーに書き換える (裁定後)
 
@@ -239,7 +239,6 @@ options JSON の展開は、Level 3 §10 が JSON 形を定義する拡張全部
 - [research/2026-09-24-passkey-usage-in-kawaz-repos.md](../research/2026-09-24-passkey-usage-in-kawaz-repos.md) — 表 2 と論点 2 / 7 / 9 / 10 / 11 / 13 / 14
 - [DESIGN-ja.md](../DESIGN-ja.md) — wire の形と client / server の責務
 - [DR-0002](DR-0002-server-api.md) — server 側 (`registrationOptions()` / `authenticationOptions()` が返す options JSON の形)
-- [QUESTIONS.md](../QUESTIONS.md) PK-Q1 — server が認証で `crossOrigin` / `topOrigin` をどう扱うか (この DR は依存しない)
 - issue `client-distribution-forms` — 配布形
 - WebAuthn Level 3 (W3C Recommendation, 2026-08-25): §5.1 `toJSON()` / `isConditionalMediationAvailable()`、§5.1.3 conditionalCreate、§5.1.7 `getClientCapabilities()`、§5.1.8 / §5.1.9 `parse*OptionsFromJSON()`、§5.8.7 `ClientCapability`、§5.9 / §5.10 permissions policy と iframe、§7.1 step 2 (`InvalidStateError` の案内)、§10.1.1〜§10.1.5 拡張の JSON 形
 - SimpleWebAuthn `@simplewebauthn/browser` 13: `startRegistration` / `startAuthentication` / `browserSupportsWebAuthn` / `platformAuthenticatorIsAvailable` / `browserSupportsWebAuthnAutofill` / `WebAuthnError` / `WebAuthnAbortService`

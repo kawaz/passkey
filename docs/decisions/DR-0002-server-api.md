@@ -244,7 +244,7 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 | options 生成 | webauthn-rs のように state (challenge + policy) を返し、検証で受け取る | パッケージが状態を持たないという DESIGN と、challenge の保存を呼び出し側の責務にする決定に反する |
 | options 生成 | SimpleWebAuthn の `preferredAuthenticatorType` (3 値から `hints` と `authenticatorAttachment` を導く) | 仕様の語彙 `hints` / `authenticatorAttachment` をそのまま受ける方が対応表が要らない |
 | origin | RP ID のサブドメインを構造的に通す (webauthn-rs `allow_subdomains`) | §13.4.8 の危険。完全一致の配列で足りる |
-| 埋め込み | 登録は拒否固定、認証だけ option (PK-Q1 の a 案の形) | 登録と認証で option の形が変わる。同じ `topOrigins` を登録に渡さなければ登録は拒否固定と同じになる |
+| 埋め込み | 登録は拒否固定、認証だけ option | 登録と認証で option の形が変わる。同じ `topOrigins` を登録に渡さなければ登録は拒否固定と同じになる |
 | 埋め込み | `crossOrigin` / `topOrigin` を見ない (cache-warden の形、CSP で塞ぐ前提) | 仕様 §7.1 / §7.2 の手順を落とす。CSP は利用者の責務で、パッケージが前提にできない |
 | BE / BS | SimpleWebAuthn の `credentialDeviceType` / `credentialBackedUp` の名で返す | 仕様の語 (`backupEligible` / `backupState`) と 1 対 1 で、別名は対応表を強いる |
 | UV | `userVerified: boolean` を結果に返す (両参照実装) | UV 必須なので常に `true`。情報が無い |
