@@ -18,6 +18,14 @@
 
 ## 裁定待ち
 
+### 👺PK-Q4: `@kawaz/passkey-server` / `@kawaz/passkey-client` を npm に 0.1.0 で公開するか (時期含む)
+
+ccmsg 側の置き換え (ccmsg の issue `replace-webauthn-with-passkey-server`) はローカルの file 参照で進めているが、ccmsg の CI / Publish は `bun install --frozen-lockfile` なので、ccmsg を push するには passkey-server が npm (または GitHub Release の tarball) で参照できる必要がある。両パッケージは DR-0001 / DR-0002 の全項目を実装済 (`just ci` 緑)。前提作業: passkey リポの未 push commit の push、release workflow (npm publish + provenance) の整備 (ROADMAP 中期の項目を前倒し)。
+
+- [ ] a (推奨): 両パッケージを 0.1.0 で公開する。release CI を先に整え、`just push` → tag → npm publish の流れで出す (公開作業自体は kawaz の npm token が要るので手順を用意して依頼)
+- [ ] b: server だけ先に 0.1.0 で公開 (client は配布形 DR-0003 の裁定後)
+- [ ] c: まだ公開しない (ccmsg 側の push は待つ)
+
 ## 確認待ち
 
 (なし)
