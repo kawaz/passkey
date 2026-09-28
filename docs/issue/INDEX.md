@@ -5,7 +5,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
 | 2026-09-24 | design | open | [client-distribution-forms](./2026-09-24-client-distribution-forms.md) | `@kawaz/passkey-client` の配布形を決める。利用者 3 つの取り込み方が違う: ccmsg-webui は… |
-| 2026-09-24 | task | wip | [client-api-from-three-webuis](./2026-09-24-client-api-from-three-webuis.md) | ccmsg-webui / cache-warden / hyoui の 3 つの webui の使い方から `@kawaz/passkey-client` の API … |
 
 <!--
 INDEX の列構成・canonical 順序・行形式の唯一の正本:

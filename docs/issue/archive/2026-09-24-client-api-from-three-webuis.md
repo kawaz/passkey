@@ -1,6 +1,6 @@
 ---
 title: "3 つの webui の使い方から @kawaz/passkey-client の API を決める"
-status: wip
+status: resolved
 category: task
 created: 2026-09-24T13:52:35+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered: 2026-09-24T14:35:40+09:00
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-28T15:19:01+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["dr/DR-0001","implemented"]
 blocked_by:
 origin: 自リポ TODO
 ---
@@ -40,7 +40,3 @@ client はブラウザの差 (`toJSON()` / `parseCreationOptionsFromJSON()` の�
 - [ ] 前提として `survey-passkey-usage-in-kawaz-repos` の列挙がある
 - [ ] 上の各項目の判断を DR に記録する
 - [ ] 3 つの webui がこの API に乗り換えた時に落ちる要件が無いことを、調査の表と突き合わせて確認する
-
-## 解決時の記録先
-
-- API の判断は `decisions/DR-NNNN-...md`、DESIGN の client 節を更新する
