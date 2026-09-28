@@ -17,7 +17,10 @@ The data passed between the two is the Level 3 `toJSON()` form (camelCase JSON),
 
 ## Install
 
-Not published yet. The packages go to npm once they have an API.
+```sh
+bun add @kawaz/passkey-client   # browser side
+bun add @kawaz/passkey-server   # server side
+```
 
 ## Documentation
 

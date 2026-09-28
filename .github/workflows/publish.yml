@@ -1,0 +1,159 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/*/package.json"
+  # workflow 自体の修正を package.json 変更なしで再走させる手動トリガ
+  workflow_dispatch:
+
+jobs:
+  # CI 一式を release の必須 gate にする。publish が needs で待つため、
+  # CI green でない commit から npm に何かが出ることはない。
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  # version は packages/<p>/package.json が正本でパッケージごとに独立に上がるので、
+  # 判定・publish・release をパッケージ単位の matrix で回す。
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        package: [client, server]
+    outputs:
+      client-version: ${{ steps.version.outputs.client-version }}
+      client-changed: ${{ steps.version.outputs.client-changed }}
+      server-version: ${{ steps.version.outputs.server-version }}
+      server-changed: ${{ steps.version.outputs.server-changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # 既存 tag (<package>-v<version>) を全部読む
+
+      # release flow が bump-semver に依存するので install する。
+      # 最新 release のバイナリを curl で取得 (linux-amd64)。
+      - name: Install bump-semver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LATEST=$(gh release list --repo kawaz/bump-semver --limit 1 --json tagName -q '.[0].tagName' | sed 's/^v//')
+          curl -fsSL --retry 5 --retry-delay 2 --max-time 60 \
+            "https://github.com/kawaz/bump-semver/releases/download/v${LATEST}/bump-semver-linux-amd64" \
+            -o /usr/local/bin/bump-semver
+          chmod +x /usr/local/bin/bump-semver
+          bump-semver --version
+
+      # 判定本体は .github/scripts/check-version.sh (ローカルでも同じものを叩ける)。
+      # matrix の job outputs は最後に終わった job の値で上書きされるため、
+      # キーにパッケージ名を含めて衝突させない。
+      - name: Check version change
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          result=$(mktemp)
+          GITHUB_OUTPUT="$result" bash .github/scripts/check-version.sh "$PACKAGE"
+          sed "s/^/${PACKAGE}-/" "$result" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [ci, check-version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh release create が tag と release を作る
+      id-token: write # npm trusted publishing (OIDC) の token 交換に要る
+    strategy:
+      fail-fast: false # 片方の publish 失敗で、もう片方の publish を止めない
+      matrix:
+        package: [client, server]
+    env:
+      VERSION: ${{ needs.check-version.outputs[format('{0}-version', matrix.package)] }}
+      CHANGED: ${{ needs.check-version.outputs[format('{0}-changed', matrix.package)] }}
+    steps:
+      - name: Skip unchanged package
+        if: env.CHANGED != 'true'
+        run: echo "${{ matrix.package }} v${VERSION} is already released; skip"
+
+      - uses: actions/checkout@v7
+        if: env.CHANGED == 'true'
+
+      - uses: oven-sh/setup-bun@v2
+        if: env.CHANGED == 'true'
+        with:
+          bun-version: latest
+
+      - uses: extractions/setup-just@v4
+        if: env.CHANGED == 'true'
+
+      # publish 自体は npm CLI で行う。trusted publishing (OIDC) は
+      # npm >= 11.5.1 / node >= 22.14.0 が要件なので、runner 同梱版に頼らず
+      # registry を明示した node をセットアップし npm を最新化する。
+      - uses: actions/setup-node@v6
+        if: env.CHANGED == 'true'
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false # 依存は bun が入れる (npm の lockfile が無い)
+      - name: Update npm (OIDC requires >= 11.5.1)
+        if: env.CHANGED == 'true'
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Install dependencies
+        if: env.CHANGED == 'true'
+        run: bun install --frozen-lockfile
+
+      # files: ["dist"] なので dist を作ってから pack する。
+      # build は just recipe だけが担い、package.json の prepublishOnly 等では走らせない (二重 build 防止)。
+      - name: Build
+        if: env.CHANGED == 'true'
+        run: just build
+
+      # 配布物の中身を release asset にも残すため、publish 前に tarball を作る。
+      - name: Pack tarball
+        if: env.CHANGED == 'true'
+        id: pack
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          TARBALL=$(npm pack --silent)
+          echo "tarball=packages/${{ matrix.package }}/${TARBALL}" >> "$GITHUB_OUTPUT"
+          ls -lh "$TARBALL"
+
+      # trusted publishing (OIDC) のみ。token は GitHub に置かない。
+      # public repo + public package なら provenance は自動で付く
+      # (docs.npmjs.com/generating-provenance-statements: OIDC 経由では
+      # --provenance フラグなしで attestation が生成される)。
+      # npmjs.com 側の各パッケージの Trusted Publisher (owner kawaz / repo passkey /
+      # workflow publish.yml) が publish を許可する。
+      - name: Publish (trusted publishing, OIDC)
+        if: env.CHANGED == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: npm publish --access public
+
+      # tag は workflow が作る (手で git tag / gh release create を打たない)。
+      # tag / release 名は <package>-v<version>。
+      - name: Create release
+        if: env.CHANGED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PACKAGE: ${{ matrix.package }}
+          COMMIT_SHA: ${{ github.sha }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          gh release create "${PACKAGE}-v${VERSION}" \
+            "$TARBALL" \
+            --repo "$REPO" \
+            --title "@kawaz/passkey-${PACKAGE} v${VERSION}" \
+            --target "$COMMIT_SHA" \
+            --generate-notes

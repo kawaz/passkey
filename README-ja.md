@@ -17,7 +17,10 @@ TypeScript 向けの passkey (WebAuthn) ライブラリ。ブラウザ側と検�
 
 ## インストール
 
-未公開。npm への公開は API が入ってから行う。
+```sh
+bun add @kawaz/passkey-client   # ブラウザ側
+bun add @kawaz/passkey-server   # サーバ側
+```
 
 ## ドキュメント
 
