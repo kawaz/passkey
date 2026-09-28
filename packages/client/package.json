@@ -1,6 +1,6 @@
 {
   "name": "@kawaz/passkey-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser side of passkeys: calls navigator.credentials and shapes the result as the WebAuthn Level 3 toJSON() form",
   "keywords": [
     "browser",
