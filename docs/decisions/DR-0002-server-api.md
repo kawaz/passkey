@@ -69,7 +69,7 @@ interface AuthenticationOptionsInput {
   extensions?: AuthenticationExtensionsClientInputsJSON;
 }
 
-/** 読むメンバーだけの構造的部分型 (PK-Q3)。lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` はそのまま代入できる */
+/** 読むメンバーだけの構造的部分型。lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` はそのまま代入できる */
 type RegistrationResponse = { rawId: string; response: { clientDataJSON: string; attestationObject: string; transports?: string[] } };
 type AuthenticationResponse = { rawId: string; response: { clientDataJSON: string; authenticatorData: string; signature: string; userHandle?: string } };
 
@@ -143,7 +143,7 @@ interface VerifiedAuthentication {
 
 読むのは `rawId`、`response.clientDataJSON`、`response.attestationObject` と `response.transports` (登録) / `response.authenticatorData` と `response.signature` と `response.userHandle` (認証) だけ。登録の `response.authenticatorData` / `publicKey` / `publicKeyAlgorithm` はブラウザが attestation object から派生させた写しなので信用せず、attestation object から読む。`type` / `id` / `clientExtensionResults` / `authenticatorAttachment` は検証に使わない。
 
-入力型は読むメンバーだけの構造的部分型にする (PK-Q3 の推奨のまま)。lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` は部分型に代入できるので client の `json` はそのまま渡せる一方、自前契約から写す利用者に読まれないメンバーのダミーを強いない (基準 4)。
+入力型は読むメンバーだけの構造的部分型にする。lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` は部分型に代入できるので client の `json` はそのまま渡せる一方、自前契約から写す利用者に読まれないメンバーのダミーを強いない (基準 4)。
 
 SimpleWebAuthn は `id === rawId` と `type === "public-key"` を検査するが (片方のみ → 候補)、採らない: `id` と `type` はブラウザが `rawId` から作る写しで、検証に寄与しない。読まないメンバーを型に入れない方針と衝突する。
 
@@ -170,7 +170,7 @@ authenticator が符号化した COSE 鍵を 1 バイトも変えずに base64ur
 | UV (§7.1 step 16 / §7.2 step 17) | 採用、固定 | 緩める option 無し (基準 3)。SimpleWebAuthn の `requireUserVerification` / `advancedFIDOConfig`、webauthn-rs の `UserVerificationPolicy::Preferred` は採らない |
 | BE が 0 なら BS も 0 (§7.1 step 17 / §7.2 step 18) | 採用 | 両 ceremony で検査し、矛盾は `backup-state` で拒否。両参照実装が拒否する (SimpleWebAuthn `InvalidBackupFlags`、webauthn-rs `CredentialMayNotBeHardwareBound`) |
 | BE / BS を返す (§7.1 step 18-19) | 採用 | 仕様の語 `backupEligible` / `backupState` で返す。SimpleWebAuthn の `credentialDeviceType: "singleDevice" \| "multiDevice"` / `credentialBackedUp` は同じ 2 bit の別名なので採らない (利用者に対応表を強いる) |
-| 認証で登録時の BE と比較 (§7.2 step 19) | 採用、option | 仕様は "If credentialRecord.backupEligible is set, verify that currentBe is set. If credentialRecord.backupEligible is not set, verify that currentBe is not set." を「RP が backup state を方針に使うなら」の条件付きで書く。`StoredCredential.backupEligible` を渡した時だけ比較し、不一致は `backup-eligibility` で拒否。webauthn-rs は既定で不一致を拒否し `allow_backup_eligible_upgrade` で false → true だけ通す。SimpleWebAuthn は比較しない。仕様どおり両方向を拒否し、昇格を通す option は未決 2 |
+| 認証で登録時の BE と比較 (§7.2 step 19) | 採用、option | 仕様は "If credentialRecord.backupEligible is set, verify that currentBe is set. If credentialRecord.backupEligible is not set, verify that currentBe is not set." を「RP が backup state を方針に使うなら」の条件付きで書く。`StoredCredential.backupEligible` を渡した時だけ比較し、不一致は `backup-eligibility` で拒否。webauthn-rs は既定で不一致を拒否し `allow_backup_eligible_upgrade` で false → true だけ通す。SimpleWebAuthn は比較しない。仕様どおり両方向を拒否し、昇格を通す option は持たない (昇格を許したい利用者は `backupEligible` を渡さない) |
 | `alg` が `pubKeyCredParams` にある (§7.1 step 20) | 採用、option | `RegistrationExpectation.algorithms` に options で載せたものを渡す。省略時は server が検証できる 3 つ全部。外れは `algorithm` で拒否。両参照実装が持つ (SimpleWebAuthn `supportedAlgorithmIDs`、webauthn-rs `credential_algorithms`) |
 | attestation `fmt` / `attStmt` (§7.1 step 21-24) | 採用、固定 | `fmt` が `none` かつ `attStmt` が空でなければ `attestation-format` で拒否 (基準 3)。参照実装が持つ packed / tpm / apple / android-key 等の検証と MDS は採らない (DESIGN の扱わないもの) |
 | credential id ≤ 1023 バイト (§7.1 step 25) | 採用 | 超えたら `credential` で拒否。空も `credential` |
@@ -237,7 +237,7 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 | 項目 | 不採用案 | 不採用理由 |
 |---|---|---|
 | 入力 | 利用者の snake_case 契約型を入力にする | DESIGN の wire は Level 3 の `toJSON()`。snake_case は利用者の境界で写す |
-| 入力 | lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` そのもの | 自前契約から写す利用者が読まれないメンバー (`authenticatorData` / `publicKeyAlgorithm` 等) をダミーで埋めることになる (PK-Q3) |
+| 入力 | lib.dom の `RegistrationResponseJSON` / `AuthenticationResponseJSON` そのもの | 自前契約から写す利用者が読まれないメンバー (`authenticatorData` / `publicKeyAlgorithm` 等) をダミーで埋めることになる |
 | `publicKey` | JWK / SPKI で返す | COSE の `alg` を別に持つ必要が出る。元のバイト列に戻せない |
 | 鍵の import | `checkPublicKey` を別関数で公開する | 呼び忘れると import できない鍵を記録できる。登録の検証に含めれば呼び忘れが起きない |
 | options 生成 | 持たない (利用者が JSON を手で組む) | 両参照実装が持ち、`attestation` / `userVerification` の固定値を利用者に毎回書かせると DESIGN の譲らない点が利用者側で崩れる |
@@ -259,7 +259,7 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - `clientDataJSON` が JSON object でない場合 (`null` や数値) は `client-data` で拒否する
 - 鍵の読み取り・import の失敗と、WebCrypto が受け付けない署名 (長さ違い等) も `PasskeyVerificationError` にまとめる (呼び出し側が `DOMException` を扱わなくてよい)
 - 埋め込みで認証を通したい利用者は認証の `expected.topOrigins` に親ページの origin を渡す。Safari からの応答を通すには `embeddedWithoutTopOrigin: "allow"` も要る
-- `StoredCredential.backupEligible` を渡す利用者は、passkey が single-device から synced に昇格した時に `backup-eligibility` で拒否される (未決 2)
+- `StoredCredential.backupEligible` を渡す利用者は、passkey が single-device から synced に昇格した時に `backup-eligibility` で拒否される (昇格を許すなら渡さない)
 
 ### 裁定済み (2026-09-28)
 
@@ -277,7 +277,7 @@ SHA-256 は `crypto.subtle.digest`、乱数は `crypto.getRandomValues`、定数
 - `RegisteredCredential.transports` を `response.transports` から写す (文字列配列でなければ `[]`)
 - `AuthenticationExpectation.userHandle` の一致検査 (`user-handle`)
 - sign count の条件を `data.signCount !== 0 || credential.signCount !== 0` に書き換える (結果は同じ、仕様の形に揃える)
-- 入力型を部分型 (`RegistrationResponse` / `AuthenticationResponse`) に置き換える (未決 1 の裁定後)
+- 入力型を部分型 (`RegistrationResponse` / `AuthenticationResponse`) に置き換える
 - `PasskeyVerificationReason` に `backup-state` / `backup-eligibility` / `algorithm` / `user-handle` を足し、`error.ts` の説明を揃える
 - `index.ts` の export と `smoke.mjs` に options 生成の経路を足す
 
