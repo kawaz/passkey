@@ -1,6 +1,6 @@
 {
   "name": "@kawaz/passkey-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Server side of passkeys: verifies registrations and assertions with WebCrypto alone",
   "keywords": [
     "passkey",
